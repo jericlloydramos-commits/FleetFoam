@@ -35,7 +35,7 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({ allowedRoles, children }) 
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen bg-slate-subtle flex flex-col items-center justify-center p-4">
         <div className="stitch-card p-8 text-center max-w-sm w-full space-y-4 shadow-md">
           <div className="w-12 h-12 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center mx-auto">
             <RefreshCw size={24} className="animate-spin text-sky-600" />
@@ -52,7 +52,7 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({ allowedRoles, children }) 
   // If unauthorized while redirecting, show access locked state
   if (!user || (profile && !allowedRoles.includes(profile.role))) {
     return (
-      <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen bg-slate-subtle flex flex-col items-center justify-center p-4">
         <div className="stitch-card p-8 text-center max-w-sm w-full space-y-4 shadow-md border-rose-200">
           <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
             <Lock size={24} />

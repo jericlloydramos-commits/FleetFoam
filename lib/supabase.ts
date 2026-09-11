@@ -176,9 +176,9 @@ export const mockDb = {
 
         if (dbProfiles && !error) {
           // 1. Sync remote Supabase profiles into local mockProfiles
-          dbProfiles.forEach((sbP: any) => {
+          dbProfiles.forEach((sbP: Partial<Profile>) => {
             const existingIdx = mockProfiles.findIndex(
-              (p) => p.id === sbP.id || p.email.toLowerCase() === sbP.email.toLowerCase()
+              (p) => (sbP.id && p.id === sbP.id) || (sbP.email && p.email.toLowerCase() === sbP.email.toLowerCase())
             );
             if (existingIdx !== -1) {
               mockProfiles[existingIdx] = {
@@ -186,7 +186,7 @@ export const mockDb = {
                 ...sbP,
                 status: mockProfiles[existingIdx].status || 'ACTIVE',
               };
-            } else {
+            } else if (sbP.id && sbP.email && sbP.name && sbP.role) {
               mockProfiles.unshift({
                 id: sbP.id,
                 email: sbP.email,
@@ -271,7 +271,7 @@ export const mockDb = {
     return mockBookings.filter(
       (b) =>
         (customerId && b.customer_id === customerId) ||
-        (email && (b as any).customer_email?.toLowerCase() === email.toLowerCase())
+        (email && b.customer_email?.toLowerCase() === email.toLowerCase())
     );
   },
 
@@ -292,7 +292,7 @@ export const mockDb = {
 
         const { data: dbBookings, error } = await query;
         if (dbBookings && !error) {
-          dbBookings.forEach((sbB: any) => {
+          dbBookings.forEach((sbB: Booking) => {
             const existingIdx = mockBookings.findIndex((b) => b.id === sbB.id);
             const bookingObj: Booking = {
               id: sbB.id,
@@ -1480,9 +1480,10 @@ export const mockDb = {
           finalProfile.role = dbRow.role;
           finalProfile.name = dbRow.name;
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Supabase createProfileAsync exception:', err);
-        return { profile: finalProfile, error: err?.message || 'Connection error' };
+        const message = err instanceof Error ? err.message : 'Connection error';
+        return { profile: finalProfile, error: message };
       }
     }
 

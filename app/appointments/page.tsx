@@ -210,7 +210,7 @@ export default function MyAppointmentsPage() {
 
   return (
     <RoleGuard allowedRoles={['CUSTOMER', 'OPERATIONS']}>
-      <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans">
+      <div className="min-h-screen bg-slate-subtle text-slate-900 flex flex-col font-sans">
         <Header />
 
         <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-8 space-y-6">

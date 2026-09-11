@@ -5,7 +5,7 @@ import { ShieldX, ArrowLeft, Home } from 'lucide-react';
 
 export default function UnauthorizedPage() {
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-subtle flex items-center justify-center p-4">
       <div className="stitch-card p-10 text-center max-w-md w-full">
         <div className="w-16 h-16 rounded-full bg-red-50 border border-red-200 flex items-center justify-center mx-auto mb-5">
           <ShieldX size={32} className="text-red-500" />

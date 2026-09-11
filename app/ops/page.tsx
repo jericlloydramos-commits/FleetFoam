@@ -238,7 +238,7 @@ export default function OperationsDashboardPage() {
 
   return (
     <RoleGuard allowedRoles={['OPERATIONS']}>
-      <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex flex-col font-sans">
+      <div className="min-h-screen bg-slate-subtle text-slate-800 flex flex-col font-sans">
         <Header />
         <Sidebar currentTab={activeTab} onSelectTab={setActiveTab} />
 

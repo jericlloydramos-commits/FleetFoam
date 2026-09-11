@@ -22,7 +22,7 @@ export default function NotFoundPage() {
   const authorizedDest = getAuthorizedDest();
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-subtle text-slate-900 flex flex-col font-sans">
       <Header />
 
       <main className="flex-1 max-w-xl mx-auto w-full px-4 py-16 flex items-center justify-center">

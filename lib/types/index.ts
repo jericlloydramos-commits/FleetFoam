@@ -41,6 +41,8 @@ export interface Service {
 export interface Booking {
   id: string;
   customer_id?: string;
+  customer_name?: string;
+  customer_email?: string;
   service_id: string;
   vehicle_make: string;
   vehicle_model: string;
