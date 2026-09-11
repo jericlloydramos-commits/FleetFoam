@@ -65,7 +65,7 @@ export default function LoginPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-slate-subtle flex items-center justify-center p-4">
         <div className="stitch-card p-10 text-center max-w-sm w-full">
           <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto mb-4">
             <CheckCircle2 size={32} className="text-emerald-500" />

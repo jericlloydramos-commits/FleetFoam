@@ -39,9 +39,10 @@ export async function DELETE(
       message: `User deleted successfully from database and roster. ${result.affectedJobs} job(s) reassigned/updated.`,
       affectedJobs: result.affectedJobs,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Internal server error';
     return NextResponse.json(
-      { success: false, error: error.message || 'Internal server error' },
+      { success: false, error: message },
       { status: 500 }
     );
   }
@@ -66,9 +67,10 @@ export async function PATCH(
       success: true,
       profile: updated,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Internal server error';
     return NextResponse.json(
-      { success: false, error: error.message || 'Internal server error' },
+      { success: false, error: message },
       { status: 500 }
     );
   }

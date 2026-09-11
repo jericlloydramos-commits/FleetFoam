@@ -98,9 +98,10 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
       } else {
         showToast('Could not delete user. Please try again.');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Deletion error:', err);
-      showToast(`Delete failed: ${err.message || 'Unknown error'}`);
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      showToast(`Delete failed: ${msg}`);
     } finally {
       setIsDeleting(false);
     }
@@ -131,9 +132,10 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
       } else {
         showToast(`Added ${newName.trim()} (${newRole}) to Supabase & system.`);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Create user error:', err);
-      showToast(`Creation error: ${err.message || 'Unknown error'}`);
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      showToast(`Creation error: ${msg}`);
     } finally {
       setIsLoading(false);
     }
