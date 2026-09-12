@@ -216,8 +216,57 @@ export default function LoginPage() {
               </button>
             </form>
 
+            {/* Quick Demo Credentials for Defense/Evaluation */}
+            <div className="mt-5 pt-4 border-t border-slate-100">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <ShieldCheck size={13} className="text-sky-600" />
+                  Evaluation Test Accounts
+                </span>
+                <span className="text-[10px] font-semibold text-slate-400 font-mono">Password: password123</span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail('earl@fleetfoam.com');
+                    setPassword('password123');
+                    setError(null);
+                  }}
+                  className="px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-sky-50 hover:border-sky-300 text-left transition-all text-xs cursor-pointer group"
+                >
+                  <span className="block font-bold text-slate-800 group-hover:text-sky-700 text-[11px]">Operations</span>
+                  <span className="block text-slate-400 text-[9px] truncate">earl@fleetfoam.com</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail('crew@fleetfoam.com');
+                    setPassword('password123');
+                    setError(null);
+                  }}
+                  className="px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-sky-50 hover:border-sky-300 text-left transition-all text-xs cursor-pointer group"
+                >
+                  <span className="block font-bold text-slate-800 group-hover:text-sky-700 text-[11px]">Field Crew</span>
+                  <span className="block text-slate-400 text-[9px] truncate">crew@fleetfoam.com</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail('customer@fleetfoam.com');
+                    setPassword('password123');
+                    setError(null);
+                  }}
+                  className="px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-sky-50 hover:border-sky-300 text-left transition-all text-xs cursor-pointer group"
+                >
+                  <span className="block font-bold text-slate-800 group-hover:text-sky-700 text-[11px]">Customer</span>
+                  <span className="block text-slate-400 text-[9px] truncate">customer@...</span>
+                </button>
+              </div>
+            </div>
+
             {/* System Security Notice */}
-            <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-center gap-2 text-slate-400 text-xs">
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-center gap-2 text-slate-400 text-xs">
               <ShieldCheck size={14} className="text-sky-600" />
               <span>FleetFoam Detail Coordinator • Authorized Access Only</span>
             </div>
