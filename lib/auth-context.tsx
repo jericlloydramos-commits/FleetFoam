@@ -76,6 +76,8 @@ function saveMockSession(user: MockUser | null) {
 }
 
 // ─── Default Demo Passwords / Accounts ───────────────────────────────────────
+export const DEMO_PASSWORDS = ['password123', 'FleetFoam2026!', 'admin123'];
+
 const DEMO_ACCOUNTS: Record<string, { name: string; role: UserRole }> = {
   // 👑 The 4 Team Members (Admin / Operations Access)
   'earlstephensenoran@gmail.com': { name: 'Earlstephen Señoran (Frontend)', role: 'OPERATIONS' },
@@ -88,6 +90,10 @@ const DEMO_ACCOUNTS: Record<string, { name: string; role: UserRole }> = {
   'ops@fleetfoam.com':            { name: 'Sarah Jenkins (Ops Admin)', role: 'OPERATIONS' },
   'admin@fleetfoam.com':          { name: 'System Administrator', role: 'OPERATIONS' },
   'dispatch@fleetfoam.com':       { name: 'Operations Dispatcher', role: 'OPERATIONS' },
+
+  // Detailing Crew & Customer Evaluation Accounts
+  'crew@fleetfoam.com':           { name: 'Marcus Vance (Lead Detailing Tech)', role: 'CREW' },
+  'customer@fleetfoam.com':       { name: 'Brooke Sterling (VIP Fleet Customer)', role: 'CUSTOMER' },
 };
 
 // ─── Context ─────────────────────────────────────────────────────────────────
@@ -237,8 +243,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (email: string, password: string): Promise<{ error: string | null }> => {
       const normalizedEmail = email.trim().toLowerCase();
 
-      // 1. Check Demo Accounts
+      // 1. Check Demo / Team Accounts (Enforce strict password check)
       if (DEMO_ACCOUNTS[normalizedEmail]) {
+        if (!DEMO_PASSWORDS.includes(password)) {
+          return {
+            error: 'Invalid email or password. Please check your credentials.',
+          };
+        }
+
         const demo = DEMO_ACCOUNTS[normalizedEmail];
         const p: Profile = {
           id: 'demo-' + normalizedEmail.replace(/[^a-zA-Z0-9]/g, '_'),
@@ -252,7 +264,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // 2. Try Supabase Auth if not in pure mock mode
       let supabaseUser: { id: string; email: string; user_metadata?: Record<string, any> } | null = null;
-      let emailUnconfirmed = false;
 
       if (!isMockMode) {
         try {
@@ -267,11 +278,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               email: data.user.email!,
               user_metadata: data.user.user_metadata,
             };
-          } else if (error?.message?.toLowerCase().includes('email not confirmed')) {
-            emailUnconfirmed = true;
+          } else if (error) {
+            const errLower = error.message?.toLowerCase() || '';
+            if (errLower.includes('invalid login credentials')) {
+              return {
+                error: 'Invalid email or password. Please check your credentials.',
+              };
+            }
+            if (errLower.includes('email not confirmed')) {
+              return {
+                error: 'Your email address is not yet confirmed. Please verify your email or use a demo account.',
+              };
+            }
           }
         } catch {
-          // Continue to local / profile checks
+          // If network error, proceed to local mock users check
         }
       }
 
@@ -298,88 +319,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // 3. Fallback: Check local registered users (from this device/browser signup)
       const localUsers = getMockUsers();
       const matchedLocal = localUsers.find(
-        (u) => u.email.toLowerCase() === normalizedEmail && u.password === password
+        (u) => u.email.toLowerCase() === normalizedEmail
       );
 
       if (matchedLocal) {
-        const p: Profile = {
-          id: matchedLocal.id,
-          email: matchedLocal.email,
-          name: matchedLocal.name,
-          role: matchedLocal.role,
-        };
-        applySession({ id: matchedLocal.id, email: matchedLocal.email, profile: p }, p);
-        return { error: null };
-      }
-
-      // 4. If Supabase blocked due to "Email not confirmed", bypass by finding the profile row
-      if (emailUnconfirmed || !isMockMode) {
-        try {
-          const { data: dbProfiles } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('email', normalizedEmail)
-            .limit(1);
-
-          if (dbProfiles && dbProfiles.length > 0) {
-            const dbProfile = dbProfiles[0] as Profile;
-            applySession({ id: dbProfile.id, email: normalizedEmail, profile: dbProfile }, dbProfile);
-            return { error: null };
-          }
-        } catch {}
-      }
-
-      // 5. In Mock / Demo Mode: Smart Auto-Login Fallback
-      // Never lock anyone out! In demo mode, automatically infer role and grant access
-      if (isMockMode) {
-        let inferredRole: UserRole = 'CUSTOMER';
-        let inferredName = normalizedEmail.split('@')[0];
-
-        if (normalizedEmail.includes('earl')) {
-          inferredRole = 'OPERATIONS';
-          inferredName = 'Earlstephen Señoran';
-        } else if (normalizedEmail.includes('marriane')) {
-          inferredRole = 'OPERATIONS';
-          inferredName = 'Marriane Angel Samson';
-        } else if (normalizedEmail.includes('michael')) {
-          inferredRole = 'OPERATIONS';
-          inferredName = 'Michael Sapinoso';
-        } else if (normalizedEmail.includes('jeric')) {
-          inferredRole = 'OPERATIONS';
-          inferredName = 'Jeric Ramos';
-        } else if (normalizedEmail.includes('ops') || normalizedEmail.includes('admin') || normalizedEmail.includes('dispatch')) {
-          inferredRole = 'OPERATIONS';
-          inferredName = 'Operations Administrator';
-        } else if (normalizedEmail.includes('crew')) {
-          inferredRole = 'CREW';
-          inferredName = 'Field Technician';
+        if (matchedLocal.password === password) {
+          const p: Profile = {
+            id: matchedLocal.id,
+            email: matchedLocal.email,
+            name: matchedLocal.name,
+            role: matchedLocal.role,
+          };
+          applySession({ id: matchedLocal.id, email: matchedLocal.email, profile: p }, p);
+          return { error: null };
+        } else {
+          return {
+            error: 'Invalid email or password. Please check your credentials.',
+          };
         }
-
-        const autoId = 'usr-' + normalizedEmail.replace(/[^a-zA-Z0-9]/g, '_');
-        const autoProfile: Profile = {
-          id: autoId,
-          email: normalizedEmail,
-          name: inferredName,
-          role: inferredRole,
-        };
-
-        // Record in local users store
-        const currentLocal = getMockUsers();
-        if (!currentLocal.find((u) => u.email.toLowerCase() === normalizedEmail)) {
-          currentLocal.push({
-            id: autoId,
-            email: normalizedEmail,
-            password: password || 'password',
-            name: inferredName,
-            role: inferredRole,
-          });
-          saveMockUsers(currentLocal);
-        }
-
-        applySession({ id: autoId, email: normalizedEmail, profile: autoProfile }, autoProfile);
-        return { error: null };
       }
 
+      // 4. No account matched or invalid credentials
       return {
         error: 'Invalid email or password. Please check your credentials or create a new account.',
       };
