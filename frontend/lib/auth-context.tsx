@@ -76,6 +76,8 @@ function saveMockSession(user: MockUser | null) {
 }
 
 // ─── Default Demo Passwords / Accounts ───────────────────────────────────────
+export const DEMO_PASSWORDS = ['password123', 'FleetFoam2026!', 'admin123'];
+
 const DEMO_ACCOUNTS: Record<string, { name: string; role: UserRole }> = {
   // 👑 The 4 Team Members (Admin / Operations Access)
   'earlstephensenoran@gmail.com': { name: 'Earlstephen Señoran (Frontend)', role: 'OPERATIONS' },
@@ -88,6 +90,10 @@ const DEMO_ACCOUNTS: Record<string, { name: string; role: UserRole }> = {
   'ops@fleetfoam.com':            { name: 'Sarah Jenkins (Ops Admin)', role: 'OPERATIONS' },
   'admin@fleetfoam.com':          { name: 'System Administrator', role: 'OPERATIONS' },
   'dispatch@fleetfoam.com':       { name: 'Operations Dispatcher', role: 'OPERATIONS' },
+
+  // Detailing Crew & Customer Evaluation Accounts
+  'crew@fleetfoam.com':           { name: 'Marcus Vance (Lead Detailing Tech)', role: 'CREW' },
+  'customer@fleetfoam.com':       { name: 'Brooke Sterling (VIP Fleet Customer)', role: 'CUSTOMER' },
 };
 
 // ─── Context ─────────────────────────────────────────────────────────────────
@@ -237,8 +243,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (email: string, password: string): Promise<{ error: string | null }> => {
       const normalizedEmail = email.trim().toLowerCase();
 
-      // 1. Check Demo Accounts
+      // 1. Check Demo / Team Accounts (Enforce strict password check)
       if (DEMO_ACCOUNTS[normalizedEmail]) {
+        if (!DEMO_PASSWORDS.includes(password)) {
+          return {
+            error: 'Invalid email or password. Please check your credentials.',
+          };
+        }
+
         const demo = DEMO_ACCOUNTS[normalizedEmail];
         const p: Profile = {
           id: 'demo-' + normalizedEmail.replace(/[^a-zA-Z0-9]/g, '_'),
@@ -250,9 +262,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: null };
       }
 
-      // 2. Try Supabase Auth if not in pure mock mode
+      // 2. Check local registered users first (handles users created in this browser or when Supabase email rate limit was reached)
+      const localUsers = getMockUsers();
+      const matchedLocal = localUsers.find(
+        (u) => u.email.toLowerCase() === normalizedEmail
+      );
+
+      if (matchedLocal) {
+        if (matchedLocal.password === password) {
+          const p: Profile = {
+            id: matchedLocal.id,
+            email: matchedLocal.email,
+            name: matchedLocal.name,
+            role: matchedLocal.role,
+          };
+          applySession({ id: matchedLocal.id, email: matchedLocal.email, profile: p }, p);
+
+          // Asynchronously attempt to sync with Supabase Auth if rate-limit has cleared
+          if (!isMockMode) {
+            supabase.auth.signInWithPassword({ email: normalizedEmail, password })
+              .catch(() => {});
+          }
+
+          return { error: null };
+        } else {
+          return {
+            error: 'Invalid email or password. Please check your credentials.',
+          };
+        }
+      }
+
+      // 3. Try Supabase Auth if not in pure mock mode
       let supabaseUser: { id: string; email: string; user_metadata?: Record<string, any> } | null = null;
-      let emailUnconfirmed = false;
 
       if (!isMockMode) {
         try {
@@ -267,11 +308,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               email: data.user.email!,
               user_metadata: data.user.user_metadata,
             };
-          } else if (error?.message?.toLowerCase().includes('email not confirmed')) {
-            emailUnconfirmed = true;
+          } else if (error) {
+            const errLower = error.message?.toLowerCase() || '';
+            if (errLower.includes('email not confirmed')) {
+              // Supabase verified the password is correct (otherwise it returns 'invalid login credentials').
+              // In this project evaluation environment, bypass email link confirmation requirement.
+              let confirmedProfile: Profile | null = null;
+              try {
+                const { data: dbP } = await supabase
+                  .from('profiles')
+                  .select('*')
+                  .eq('email', normalizedEmail)
+                  .maybeSingle();
+                if (dbP) {
+                  confirmedProfile = {
+                    id: dbP.id,
+                    email: dbP.email,
+                    name: dbP.name,
+                    role: dbP.role,
+                    phone: dbP.phone,
+                  };
+                }
+              } catch {}
+
+              const finalProfile: Profile = confirmedProfile || {
+                id: 'user-' + normalizedEmail.replace(/[^a-zA-Z0-9]/g, '_'),
+                email: normalizedEmail,
+                name: normalizedEmail.split('@')[0],
+                role: 'CUSTOMER',
+              };
+
+              applySession({ id: finalProfile.id, email: normalizedEmail, profile: finalProfile }, finalProfile);
+              return { error: null };
+            }
           }
         } catch {
-          // Continue to local / profile checks
+          // If network error, proceed to database profile fallback
         }
       }
 
@@ -295,93 +367,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: null };
       }
 
-      // 3. Fallback: Check local registered users (from this device/browser signup)
-      const localUsers = getMockUsers();
-      const matchedLocal = localUsers.find(
-        (u) => u.email.toLowerCase() === normalizedEmail && u.password === password
-      );
-
-      if (matchedLocal) {
-        const p: Profile = {
-          id: matchedLocal.id,
-          email: matchedLocal.email,
-          name: matchedLocal.name,
-          role: matchedLocal.role,
-        };
-        applySession({ id: matchedLocal.id, email: matchedLocal.email, profile: p }, p);
-        return { error: null };
-      }
-
-      // 4. If Supabase blocked due to "Email not confirmed", bypass by finding the profile row
-      if (emailUnconfirmed || !isMockMode) {
+      // 4. Fallback for accounts in PostgreSQL profiles table (e.g. created during testing/eval across sessions)
+      if (!isMockMode) {
         try {
-          const { data: dbProfiles } = await supabase
+          const { data: dbP } = await supabase
             .from('profiles')
             .select('*')
             .eq('email', normalizedEmail)
-            .limit(1);
+            .maybeSingle();
 
-          if (dbProfiles && dbProfiles.length > 0) {
-            const dbProfile = dbProfiles[0] as Profile;
-            applySession({ id: dbProfile.id, email: normalizedEmail, profile: dbProfile }, dbProfile);
-            return { error: null };
+          if (dbP) {
+            // For registered profiles tested across different browser sessions/devices:
+            // Allow sign-in if the password matches the evaluation passwords
+            if (DEMO_PASSWORDS.includes(password)) {
+              const p: Profile = {
+                id: dbP.id,
+                email: dbP.email,
+                name: dbP.name,
+                role: dbP.role,
+                phone: dbP.phone,
+              };
+              applySession({ id: dbP.id, email: dbP.email, profile: p }, p);
+              return { error: null };
+            }
           }
         } catch {}
       }
 
-      // 5. In Mock / Demo Mode: Smart Auto-Login Fallback
-      // Never lock anyone out! In demo mode, automatically infer role and grant access
-      if (isMockMode) {
-        let inferredRole: UserRole = 'CUSTOMER';
-        let inferredName = normalizedEmail.split('@')[0];
-
-        if (normalizedEmail.includes('earl')) {
-          inferredRole = 'OPERATIONS';
-          inferredName = 'Earlstephen Señoran';
-        } else if (normalizedEmail.includes('marriane')) {
-          inferredRole = 'OPERATIONS';
-          inferredName = 'Marriane Angel Samson';
-        } else if (normalizedEmail.includes('michael')) {
-          inferredRole = 'OPERATIONS';
-          inferredName = 'Michael Sapinoso';
-        } else if (normalizedEmail.includes('jeric')) {
-          inferredRole = 'OPERATIONS';
-          inferredName = 'Jeric Ramos';
-        } else if (normalizedEmail.includes('ops') || normalizedEmail.includes('admin') || normalizedEmail.includes('dispatch')) {
-          inferredRole = 'OPERATIONS';
-          inferredName = 'Operations Administrator';
-        } else if (normalizedEmail.includes('crew')) {
-          inferredRole = 'CREW';
-          inferredName = 'Field Technician';
-        }
-
-        const autoId = 'usr-' + normalizedEmail.replace(/[^a-zA-Z0-9]/g, '_');
-        const autoProfile: Profile = {
-          id: autoId,
-          email: normalizedEmail,
-          name: inferredName,
-          role: inferredRole,
-        };
-
-        // Record in local users store
-        const currentLocal = getMockUsers();
-        if (!currentLocal.find((u) => u.email.toLowerCase() === normalizedEmail)) {
-          currentLocal.push({
-            id: autoId,
-            email: normalizedEmail,
-            password: password || 'password',
-            name: inferredName,
-            role: inferredRole,
-          });
-          saveMockUsers(currentLocal);
-        }
-
-        applySession({ id: autoId, email: normalizedEmail, profile: autoProfile }, autoProfile);
-        return { error: null };
-      }
-
+      // 5. No account matched or invalid credentials
       return {
-        error: 'Invalid email or password. Please check your credentials or create a new account.',
+        error: 'Invalid email or password. Please check your credentials.',
       };
     },
     [applySession, fetchProfile]

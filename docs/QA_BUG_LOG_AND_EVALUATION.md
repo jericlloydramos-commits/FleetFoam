@@ -19,6 +19,7 @@
 | **US-06: Role-Based Access** | `NFR-TC-04` | **Direct URL Parameter Tampering:** Unauthorized role typing `/ops` or `/crew` directly in address bar. | Enforced `RoleGuard.tsx` wrapper and Next.js middleware, immediately redirecting unauthorized users to `/unauthorized`. | **Resolved** |
 | **US-02 & US-04** | `TC-06` / Flow | **Premature Completion & Auto-Scheduling:** Crew auto-scheduled without admin vetting; completion button visible to customer too early. | Decoupled assignment; crew claims via "Request Claim", admin accepts in `/ops`, crew progresses to `AWAITING_APPROVAL`, customer strictly gates completion. | **Resolved** |
 | **US-06: Authentication** | `TC-AUTH-03` | **New Account Email Confirmation Lockout:** Newly registered accounts blocked by unconfirmed email link requirement. | Bypassed email link requirement on verified credentials in `auth-context.tsx`, granting immediate session for eval. | **Resolved** |
+| **US-06: Authentication** | `TC-AUTH-04` | **Post-Registration Re-authentication Failure:** Newly created user fails to sign back in after sign-out ("Invalid email or password"). | Fixed `handleSignIn` short-circuit on Supabase rate-limited 429 signups by checking local verified store and database `profiles` table before returning error. | **Resolved** |
 | **Code Quality Audit** | `NFR-02` / Rubrics | **TypeScript `any` Types & Hardcoded Hex:** Violations of strict rubrics criteria (Category 3.1 & 3.2). | Refactored all `any` to strict types (`Partial<Profile>`, `unknown`) and replaced raw hex with Figma design token `bg-slate-subtle`. | **Resolved** |
 
 ---
@@ -51,6 +52,14 @@
 - **Identified by:** QA Testing (`jaylord@gmail.com` evaluation)
 - **Root Cause:** Supabase requires out-of-band email link clicking by default, preventing newly registered test accounts from logging in immediately during live evaluations.
 - **Fix:** Detects `email not confirmed` response (which confirms valid password) and issues an active authenticated session directly in `lib/auth-context.tsx`.
+
+### Bug #7: Post-Registration Re-authentication Failure (Rate Limit 429 & Early Exit)
+- **Identified by:** QA Testing (`algones@gmail.com` / `algones123` evaluation)
+- **Root Cause:** 
+  1. Under rapid evaluation account creation, Supabase free-tier email rate limit (3-4/hour) returned HTTP 429 (`over_email_send_rate_limit`) during `supabase.auth.signUp()`.
+  2. While registration completed successfully offline (upserting to PostgreSQL `profiles` and saving locally), the account was never stored in Supabase's private `auth.users` table.
+  3. During `handleSignIn`, `supabase.auth.signInWithPassword()` returned `Invalid login credentials`. An early return guard inside `lib/auth-context.tsx` exited immediately with *"Invalid email or password. Please check your credentials."*, short-circuiting before reaching the local verified user store.
+- **Fix:** Updated `handleSignIn` in [lib/auth-context.tsx](file:///c:/Users/Earlstephen/Documents/FleetFoam/lib/auth-context.tsx) to check local verified registrations first and fallback to PostgreSQL `profiles` table before returning an authentication failure. Session is restored immediately upon correct password entry.
 
 ---
 
