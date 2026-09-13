@@ -3,7 +3,7 @@
 > **Automotive Mobile Precision Detailing & Real-Time Fleet Dispatch Platform**  
 > *Academic Defense & Production-Ready Platform for On-Demand Eco-Friendly Vehicle Detailing*
 
-[![FleetFoam CI/CD](https://github.com/earlstephen/fleetfoam-detail-coordinator/actions/workflows/ci.yml/badge.svg)](https://github.com)
+[![FleetFoam CI/CD](https://github.com/jericlloydramos-commits/FleetFoam/actions/workflows/ci.yml/badge.svg)](https://github.com/jericlloydramos-commits/FleetFoam/actions)
 [![Next.js](https://img.shields.io/badge/Next.js-14.1.3-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![Supabase](https://img.shields.io/badge/Database-Supabase%20Postgres-3ecf8e?style=flat-square&logo=supabase)](https://supabase.com/)
@@ -17,39 +17,50 @@
 |---|---|---|:---:|
 | **FR-01** | **Customer 7-Step Booking Flow** | [`app/booking/page.tsx`](./app/booking/page.tsx) | ✅ **100%** |
 | **FR-02 / FTC-01** | **Schedule Conflict Detection** (Returns HTTP 409) | [`app/api/bookings/availability/route.ts`](./app/api/bookings/availability/route.ts) | ✅ **100%** |
-| **FR-03** | **Crew Assigned Job Access** | [`app/crew/page.tsx`](./app/crew/page.tsx) | ✅ **100%** |
+| **FR-03** | **Crew Assigned Job Access & Claim Flow** | [`app/crew/page.tsx`](./app/crew/page.tsx) | ✅ **100%** |
 | **FR-04 / FTC-03** | **Job Status State Machine** (Linear progression + recovery) | [`app/api/jobs/[id]/status/route.ts`](./app/api/jobs/[id]/status/route.ts) | ✅ **100%** |
 | **FR-05** | **Operations Live Monitoring & Dispatch** | [`app/ops/page.tsx`](./app/ops/page.tsx) | ✅ **100%** |
 | **FR-06** | **Appointment Cancellation Handling** | [`app/appointments/page.tsx`](./app/appointments/page.tsx) | ✅ **100%** |
 | **FR-07 / US-06** | **Role-Based Access Control (RBAC)** | [`middleware.ts`](./middleware.ts) | ✅ **100%** |
 | **FTC-02** | **Mandatory Field Validation Guard** (Blocks empty step) | [`app/booking/page.tsx`](./app/booking/page.tsx) | ✅ **100%** |
 | **FTC-04** | **Ops Dashboard Network Recovery State** | [`app/ops/page.tsx`](./app/ops/page.tsx) | ✅ **100%** |
-| **NFR-01** | **Mobile-First Responsive Layout** | Global Tailwind design tokens | ✅ **100%** |
+| **NFR-01** | **Mobile-First Responsive Layout** | Global Tailwind design tokens (44px+ touch targets) | ✅ **100%** |
 | **NFR-02** | **WCAG 2.1 AA Accessibility** (Text + Icon Badges, focus rings) | [`components/ui/StatusBadge.tsx`](./components/ui/StatusBadge.tsx) | ✅ **100%** |
-| **NFR-04** | **Route Protection Security** | [`components/auth/RoleGuard.tsx`](./components/auth/RoleGuard.tsx) | ✅ **100%** |
+| **NFR-04** | **Route Protection Security & Strict Credentials** | [`components/auth/RoleGuard.tsx`](./components/auth/RoleGuard.tsx) | ✅ **100%** |
 | **NFR-05** | **Automated CI/CD Pipeline** | [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) | ✅ **100%** |
 
 ---
 
-## 🗺️ Live GPS & OpenStreetMap Engine (Mindanao & Nationwide)
+## 🐞 QA Bug Log & Defense Documentation
 
-- **Official OpenStreetMap Standard Layer**: 100% free, no API keys, zero watermarks.
-- **Hardware Live GPS (`📍 My Live GPS`)**: Built-in browser geolocation support (`navigator.geolocation`) that acquires your exact coordinates anywhere in Mindanao (Davao, Cagayan de Oro, GenSan, Zamboanga) or Metro Manila.
-- **Quick Hub Flying**: One-click camera focus between **Mindanao Hub** and **NCR / Metro Manila**.
-- **Customer GPS Auto-Detect**: Step 3 of the Customer Booking flow allows one-tap GPS locking for accurate driveway arrival.
+All failure scenarios (`FTC-01` to `FTC-04`), resolved edge cases, and QA verification logs signed off by **Jeric Lloyd Ramos (QA Lead)** are documented in:
+* 📄 [**QA Bug Log, Edge Cases & Evaluation Report**](./docs/QA_BUG_LOG_AND_EVALUATION.md)
+* 📊 [**Master Test Case Matrix (15 Functional + 4 Negative + 5 NFR Tests)**](./docs/FleetFoam_FINAL_Execution_Ready_Test_Cases.xlsx)
+* 📑 [**Complete Software Requirements Specification (SRS v1.0 Baseline)**](./docs/FleetFoam_FINAL_Software_Requirements_Specification_SRS.docx)
 
 ---
 
-## 🔐 Demo Accounts & Clearance Levels
+## 🗺️ Interactive Dispatch Map & Fleet Coordinates
 
-| Role | Email | Password | Allowed Access |
+- **Interactive Philippines Dispatch Map**: Integrated in `/ops` showing operational zones (Mindanao Hub & Metro Manila).
+- **Service Hub Filtering**: Dispatchers can quickly filter appointments and active crews between Davao/CDO and NCR.
+- **Scope Boundary Note**: Live GPS tracking, real-time routing optimization, and automated ETA calculation are formally designated as **Deferred / Future Scope (`FUT-01` to `FUT-03`)** per SRS v1.0 Section 3.2.
+
+---
+
+## 🔐 Official Evaluation Accounts & Credentials
+
+*Official Evaluation Password for all accounts:* **`password123`** *(Quick-fill evaluation pills are also available on [`/auth/login`](./app/auth/login/page.tsx))*
+
+| Role | Account Email | Password | Authorized Access Routes |
 |---|---|---|---|
-| **Operations Dispatcher** | `dispatch@fleetfoam.com` | *(Any password / 1-click)* | `/ops`, `/booking`, `/crew`, `/appointments` |
-| **Customer** | `customer@example.com` | *(Any password / 1-click)* | `/booking`, `/appointments` |
-| **Crew 01** | `crew1@fleetfoam.com` | *(Any password / 1-click)* | `/crew` |
-| **Crew 02** | `crew2@fleetfoam.com` | *(Any password / 1-click)* | `/crew` |
-| **Crew 03 (James)** | `james@gmail.com` | *(Any password / 1-click)* | `/crew` |
-| **Admin Owner** | `e@gmail.com` | *(Any password / 1-click)* | Full platform access |
+| **Project Manager** | `marriane@fleetfoam.com` | `password123` | `/ops`, `/booking`, `/crew`, `/appointments` |
+| **Frontend Specialist** | `earl@fleetfoam.com` | `password123` | `/ops`, `/booking`, `/crew`, `/appointments` |
+| **Backend Engineer** | `michael@fleetfoam.com` | `password123` | `/ops`, `/booking`, `/crew`, `/appointments` |
+| **QA / DevOps Lead** | `jeric@fleetfoam.com` | `password123` | `/ops`, `/booking`, `/crew`, `/appointments` |
+| **Operations Dispatcher** | `dispatch@fleetfoam.com` | `password123` | `/ops`, `/booking`, `/crew`, `/appointments` |
+| **Field Detailing Crew** | `crew1@fleetfoam.com` | `password123` | `/crew` (Field Console & Status Updates) |
+| **Customer** | `customer@example.com` | `password123` | `/booking` (Booking Wizard), `/appointments` |
 
 ---
 
@@ -62,8 +73,8 @@
 ### 2. Installation
 ```bash
 # Clone the repository
-git clone https://github.com/earlstephen/fleetfoam-detail-coordinator.git
-cd fleetfoam-detail-coordinator
+git clone https://github.com/jericlloydramos-commits/FleetFoam.git
+cd FleetFoam
 
 # Install dependencies
 npm install
@@ -83,7 +94,7 @@ npm run dev
 ```
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### 5. Verification Commands (Passed Cleanly for GitHub Push)
+### 5. Verification Commands (Passing on GitHub Actions CI)
 ```bash
 # ESLint Check (0 errors, 0 warnings)
 npm run lint
@@ -100,25 +111,26 @@ npm run build
 ## 🏛️ System Architecture
 
 ```
-fleetfoam-detail-coordinator/
+FleetFoam/
 ├── app/
 │   ├── api/
 │   │   ├── bookings/availability/   # FR-02 / FTC-01 Conflict API
 │   │   └── jobs/[id]/status/        # FR-04 / FTC-03 State Machine API
-│   ├── appointments/                # FR-06 Customer Appointments & Cancellation
-│   ├── auth/                        # AUTH-01 Login, AUTH-02 Signup
+│   ├── appointments/                # FR-06 Customer Appointments & Strict Approval Gate
+│   ├── auth/                        # AUTH-01 Login with QA Pills, AUTH-02 Signup
 │   ├── booking/                     # FR-01 7-Step Booking Wizard
-│   ├── crew/                        # FR-03 & FR-04 Crew Field Console
-│   ├── ops/                         # FR-05 Operations Dispatch Center
+│   ├── crew/                        # FR-03 & FR-04 Crew Field Console & Claim Requests
+│   ├── ops/                         # FR-05 Operations Dispatch Center & Claim Approvals
 │   └── unauthorized/                # AUTH-03 Access Denied Guard
 ├── components/
 │   ├── admin/UserManagementModal    # Supabase User CRUD Modal
 │   ├── auth/RoleGuard               # Client-Side Security Guard
-│   ├── map/FleetMap                 # Leaflet OpenStreetMap Engine + Live GPS
+│   ├── map/PhilippinesDispatchMap   # Dispatch Visualizer & Regional Filters
 │   └── ui/StatusBadge               # NFR-02 WCAG 2.1 AA Compliant Badges
+├── docs/                            # SRS, Test Cases, Client Brief & QA Bug Log
 ├── lib/
-│   ├── auth-context.tsx             # Supabase & Local Auth Provider
-│   ├── supabase.ts                  # Supabase Client & RFC4122 v4 Generators
+│   ├── auth-context.tsx             # Strict Auth Provider & Evaluation Fallback
+│   ├── supabase.ts                  # Supabase Client & Local Storage Sync
 │   └── types/index.ts               # Core TypeScript Domain Models
 ├── middleware.ts                    # FR-07 RBAC Route Protection
 └── supabase/
