@@ -34,3 +34,5 @@
 ### Bug #3: TypeScript & Design Token Hygiene
 - **Root Cause:** `lib/supabase.ts` contained `(b as any)` and `catch (err: any)`.
 - **Fix:** Added `customer_name` and `customer_email` to `Booking` interface, typed error objects as `unknown`, and ran `npx tsc --noEmit` yielding zero compilation errors.
+
+* **QA Lead Sign-Off Date:** September 13, 2026 by Jeric Lloyd Ramos
