@@ -35,4 +35,15 @@
 - **Root Cause:** `lib/supabase.ts` contained `(b as any)` and `catch (err: any)`.
 - **Fix:** Added `customer_name` and `customer_email` to `Booking` interface, typed error objects as `unknown`, and ran `npx tsc --noEmit` yielding zero compilation errors.
 
-* **QA Lead Sign-Off Date:** September 13, 2026 by Jeric Lloyd Ramos
+### Bug #4: TC-AUTH-02 Authentication Security & Credential Validation
+- **Identified by:** Jeric Lloyd Ramos (QA / DevOps Lead)
+- **Root Cause:** Fail-safe demo mode previously accepted invalid passwords and bypassed Supabase authentication through unauthenticated profile table lookups.
+- **Fix:** Enforced strict credential matching across Supabase auth, designated demo accounts (`password123`), and local stores. Invalid credentials now strictly yield `Invalid email or password`. Added one-click evaluation testing pills to `app/auth/login/page.tsx` for streamlined defense evaluation.
+
+---
+
+## 3. QA Sign-Off & Verification
+* **QA & DevOps Lead:** Jeric Lloyd Ramos (`@jericlloydramos-commits`)
+* **Verification Status:** All 15 Test Cases (`TC-01` to `TC-15`) and 4 Edge Case Tests (`FTC-01` to `FTC-04`) PASSED.
+* **Pipeline Status:** GitHub Actions CI/CD (`.github/workflows/ci.yml`) passing 4/4 checks.
+
