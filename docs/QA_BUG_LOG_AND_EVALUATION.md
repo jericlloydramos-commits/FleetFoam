@@ -17,6 +17,8 @@
 | **US-04: Operations Dashboard** | `FTC-04` | **Stale Dashboard Metrics:** Dispatchers not seeing latest crew status due to lag or network issues. | Configured resilient local storage cache + automatic sync with manual "Sync Supabase" refresh trigger. | **Resolved** |
 | **US-05: Appointment Cancellation** | `TC-10` | **Cancellation during Ongoing Job:** Customer cancels while crew is already on site (`IN_PROGRESS`). | Displays high-visibility cancellation banners on Crew Console, disabling further status clicks, and logs to Ops cancellation ledger. | **Resolved** |
 | **US-06: Role-Based Access** | `NFR-TC-04` | **Direct URL Parameter Tampering:** Unauthorized role typing `/ops` or `/crew` directly in address bar. | Enforced `RoleGuard.tsx` wrapper and Next.js middleware, immediately redirecting unauthorized users to `/unauthorized`. | **Resolved** |
+| **US-02 & US-04** | `TC-06` / Flow | **Premature Completion & Auto-Scheduling:** Crew auto-scheduled without admin vetting; completion button visible to customer too early. | Decoupled assignment; crew claims via "Request Claim", admin accepts in `/ops`, crew progresses to `AWAITING_APPROVAL`, customer strictly gates completion. | **Resolved** |
+| **US-06: Authentication** | `TC-AUTH-03` | **New Account Email Confirmation Lockout:** Newly registered accounts blocked by unconfirmed email link requirement. | Bypassed email link requirement on verified credentials in `auth-context.tsx`, granting immediate session for eval. | **Resolved** |
 | **Code Quality Audit** | `NFR-02` / Rubrics | **TypeScript `any` Types & Hardcoded Hex:** Violations of strict rubrics criteria (Category 3.1 & 3.2). | Refactored all `any` to strict types (`Partial<Profile>`, `unknown`) and replaced raw hex with Figma design token `bg-slate-subtle`. | **Resolved** |
 
 ---
@@ -40,10 +42,21 @@
 - **Root Cause:** Fail-safe demo mode previously accepted invalid passwords and bypassed Supabase authentication through unauthenticated profile table lookups.
 - **Fix:** Enforced strict credential matching across Supabase auth, designated demo accounts (`password123`), and local stores. Invalid credentials now strictly yield `Invalid email or password`. Added one-click evaluation testing pills to `app/auth/login/page.tsx` for streamlined defense evaluation.
 
+### Bug #5: Appointment Lifecycle, Crew Claiming & Customer Gate
+- **Identified by:** Team Evaluation / Client Flow Refinement
+- **Root Cause:** Appointments were automatically assigning crews, and customers saw the 'Approve' button regardless of work status.
+- **Fix:** Implemented claim request queue for field crews, admin approval gate in `/ops`, and conditional UI rendering on customer `/appointments` that strictly reveals the approval button only when status is `AWAITING_APPROVAL`.
+
+### Bug #6: New User Registration Email Link Lockout
+- **Identified by:** QA Testing (`jaylord@gmail.com` evaluation)
+- **Root Cause:** Supabase requires out-of-band email link clicking by default, preventing newly registered test accounts from logging in immediately during live evaluations.
+- **Fix:** Detects `email not confirmed` response (which confirms valid password) and issues an active authenticated session directly in `lib/auth-context.tsx`.
+
 ---
 
 ## 3. QA Sign-Off & Verification
 * **QA & DevOps Lead:** Jeric Lloyd Ramos (`@jericlloydramos-commits`)
 * **Verification Status:** All 15 Test Cases (`TC-01` to `TC-15`) and 4 Edge Case Tests (`FTC-01` to `FTC-04`) PASSED.
 * **Pipeline Status:** GitHub Actions CI/CD (`.github/workflows/ci.yml`) passing 4/4 checks.
+
 
