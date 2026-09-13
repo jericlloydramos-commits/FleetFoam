@@ -127,5 +127,9 @@ fleetfoam-detail-coordinator/
 
 ---
 
-## 👥 Authors
-* **Earlstephen Señoran** & Team — *BSIT Elective 5 (FleetFoam Mobile Eco-Wash Detail Coordinator)*
+## 👥 FleetFoam Project Team (Group 8)
+
+* **Samson, Marriane Angel** — *Project Manager*
+* **Señoran, Earlstephen (@zxstto)** — *Frontend Specialist*
+* **Sapinoso, Michael** — *Backend & Database Engineer*
+* **Ramos, Jeric Lloyd (@jericlloydramos-commits)** — *QA / DevOps Lead*
