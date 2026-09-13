@@ -109,7 +109,7 @@ function loadStoredData() {
       localStorage.removeItem('fleetfoam_mock_jobs_v3');
       localStorage.removeItem('fleetfoam_mock_profiles_v2');
       localStorage.removeItem('fleetfoam_notifications_v1');
-      localStorage.removeItem('fleetfoam_mock_users');
+      // preserved user storage
 
       const storedProfiles = localStorage.getItem(STORAGE_KEY_PROFILES);
       if (storedProfiles) {

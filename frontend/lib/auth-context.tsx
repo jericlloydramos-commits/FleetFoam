@@ -23,7 +23,7 @@ interface AuthContextValue {
 
 // ─── Mock Users Storage (for non-Supabase / demo mode) ───────────────────────
 
-const MOCK_USERS_KEY = 'fleetfoam_mock_users';
+const MOCK_USERS_KEY = 'fleetfoam_registered_users_v3';
 const MOCK_SESSION_KEY = 'fleetfoam_mock_session';
 
 interface MockUser {
