@@ -132,6 +132,13 @@ export default function CrewTerminalPage() {
     }
   }, [user, profile?.role, profile?.name]);
 
+  // Auto switch to AVAILABLE tab if no assigned jobs
+  useEffect(() => {
+    if (jobs.length === 0 && unassignedJobs.length > 0) {
+      setActiveTab('AVAILABLE');
+    }
+  }, [jobs.length, unassignedJobs.length]);
+
   useEffect(() => {
     loadJobs();
     const handleUpdate = () => {

@@ -24,6 +24,7 @@ import {
   Sparkles,
   Star,
   RefreshCw,
+  Lock,
 } from 'lucide-react';
 
 export default function MyAppointmentsPage() {
@@ -479,8 +480,8 @@ export default function MyAppointmentsPage() {
                     return (
                       <div className="space-y-4">
                         {/* ─── CUSTOMER INSPECTION & APPROVAL CARD ───────────── */}
-                        {!isCompleted && !isCancelled && (
-                          <div className="p-6 rounded-2xl bg-gradient-to-br from-indigo-50/90 via-purple-50/70 to-emerald-50/40 border-2 border-indigo-300 shadow-md space-y-4 animate-fadeIn">
+                        {isAwaitingApproval && (
+                          <div className="p-6 rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50 to-sky-50 border-2 border-emerald-400 shadow-lg space-y-4 animate-fadeIn">
                             <div className="flex items-start gap-3.5">
                               <div className="w-11 h-11 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md">
                                 <Sparkles size={22} className="text-amber-300" />
@@ -555,6 +556,59 @@ export default function MyAppointmentsPage() {
                                   &bull; Send to Admin
                                 </span>
                               </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* ─── LIVE SERVICE PROGRESS TRACKER (BEFORE AWAITING APPROVAL) ─── */}
+                        {!isCompleted && !isCancelled && !isAwaitingApproval && !isNeedsRevisit && (
+                          <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 shadow-sm space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="relative flex h-2.5 w-2.5">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-sky-500"></span>
+                                </span>
+                                <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">
+                                  Live Appointment Status: {selectedBooking.status.replace(/_/g, ' ')}
+                                </h4>
+                              </div>
+                              <span className="text-[11px] font-bold text-slate-500 bg-slate-200/80 px-2.5 py-0.5 rounded-full">
+                                {hasAssignee ? `Specialist: ${selectedJob?.assignee?.name}` : 'Awaiting Specialist Assignment'}
+                              </span>
+                            </div>
+
+                            <p className="text-xs text-slate-600 leading-relaxed">
+                              {selectedBooking.status === 'SCHEDULED' && !hasAssignee && (
+                                <>
+                                  Your appointment has been placed! Our Operations dispatch is currently coordinating with available specialists. You will be notified once a specialist is assigned.
+                                </>
+                              )}
+                              {selectedBooking.status === 'SCHEDULED' && hasAssignee && (
+                                <>
+                                  Specialist <strong className="text-slate-900">{selectedJob?.assignee?.name}</strong> has been assigned to your appointment. Service is scheduled for {selectedBooking.appointment_date} ({selectedBooking.time_slot}).
+                                </>
+                              )}
+                              {selectedBooking.status === 'ON_THE_WAY' && (
+                                <>
+                                  Specialist <strong className="text-slate-900">{selectedJob?.assignee?.name}</strong> is currently on the way to your location with the mobile detailing van.
+                                </>
+                              )}
+                              {selectedBooking.status === 'ARRIVED' && (
+                                <>
+                                  Specialist <strong className="text-slate-900">{selectedJob?.assignee?.name}</strong> has arrived on-site and is setting up the equipment.
+                                </>
+                              )}
+                              {selectedBooking.status === 'IN_PROGRESS' && (
+                                <>
+                                  Detailing is actively underway on your {selectedBooking.vehicle_make} {selectedBooking.vehicle_model}. Your specialist will submit the finished job for your inspection and sign-off shortly.
+                                </>
+                              )}
+                            </p>
+
+                            <div className="pt-2 border-t border-slate-200/80 flex items-center gap-2 text-[11px] text-slate-500 font-medium">
+                              <Lock size={12} className="text-slate-400" />
+                              <span>Customer completion button unlocks once your specialist marks the job as <strong>Awaiting Approval</strong>.</span>
                             </div>
                           </div>
                         )}
@@ -713,8 +767,8 @@ export default function MyAppointmentsPage() {
                       <PhoneCall size={14} className="text-sky-600" /> Contact Support
                     </button>
 
-                    {/* Prominent Customer Decision Buttons in the action bar */}
-                    {selectedBooking.status !== 'CANCELLED' && selectedBooking.status !== 'COMPLETED' && (
+                    {/* Prominent Customer Decision Buttons in the action bar - ONLY WHEN AWAITING APPROVAL */}
+                    {selectedBooking.status === 'AWAITING_APPROVAL' && (
                       <div className="flex items-center gap-2 w-full sm:w-auto">
                         <button
                           type="button"

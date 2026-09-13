@@ -441,6 +441,7 @@ export const mockDb = {
       id: jobId,
       booking_id: newBooking.id,
       assigned_to: undefined,
+      claim_status: 'NONE',
       status: 'SCHEDULED',
       updated_at: new Date().toISOString(),
       lat: newBooking.lat || 14.5505,
@@ -512,11 +513,10 @@ export const mockDb = {
     let jobIndex = mockJobs.findIndex((j) => j.id === jobId);
 
     if (jobIndex === -1) {
-      const crewMember = mockProfiles.find((p) => p.role === 'CREW') || mockProfiles[2];
       const newJob: Job = {
         id: jobId,
         booking_id: fallbackData?.booking_id || 'book-' + jobId,
-        assigned_to: fallbackData?.assigned_to || crewMember.id,
+        assigned_to: fallbackData?.assigned_to || undefined,
         status: newStatus,
         updated_at: new Date().toISOString(),
         booking: fallbackData?.booking || {
@@ -532,7 +532,7 @@ export const mockDb = {
           status: newStatus,
           service: mockServices[0],
         },
-        assignee: crewMember,
+        assignee: fallbackData?.assigned_to ? (mockProfiles.find((p) => p.id === fallbackData.assigned_to) || undefined) : undefined,
       };
       mockJobs.unshift(newJob);
       jobIndex = 0;
