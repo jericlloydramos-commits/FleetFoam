@@ -96,6 +96,13 @@ let mockNotifications: AppNotification[] = [];
 function notifySubscribers() {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(NOTIFICATIONS_CHANGE_EVENT));
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('fleetfoam_state_channel');
+        bc.postMessage({ type: 'STATE_CHANGED', timestamp: Date.now() });
+        bc.close();
+      }
+    } catch {}
   }
 }
 
@@ -316,6 +323,15 @@ export const mockDb = {
               revisit_count: sbB.revisit_count,
             };
             if (existingIdx !== -1) {
+              // Preserve advanced local status (AWAITING_APPROVAL or NEEDS_REVISIT)
+              // if Supabase DB has not yet applied the enum migration and still returns IN_PROGRESS
+              if (
+                (mockBookings[existingIdx].status === 'AWAITING_APPROVAL' ||
+                 mockBookings[existingIdx].status === 'NEEDS_REVISIT') &&
+                bookingObj.status === 'IN_PROGRESS'
+              ) {
+                bookingObj.status = mockBookings[existingIdx].status;
+              }
               mockBookings[existingIdx] = { ...mockBookings[existingIdx], ...bookingObj };
             } else {
               mockBookings.unshift(bookingObj);

@@ -92,11 +92,48 @@ export default function MyAppointmentsPage() {
 
   useEffect(() => {
     loadBookings();
+
     const handleUpdate = () => {
       loadBookings();
     };
+
+    // 1. Same-window custom notification event
     window.addEventListener(NOTIFICATIONS_CHANGE_EVENT, handleUpdate);
-    return () => window.removeEventListener(NOTIFICATIONS_CHANGE_EVENT, handleUpdate);
+
+    // 2. Cross-tab storage synchronization (fires when crew updates in another tab)
+    const handleStorage = (e: StorageEvent) => {
+      if (
+        e.key === 'fleetfoam_mock_jobs_v4' ||
+        e.key === 'fleetfoam_mock_bookings_v4' ||
+        e.key === 'fleetfoam_notifications_v2'
+      ) {
+        loadBookings();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    // 3. Instant cross-tab BroadcastChannel
+    let broadcastChannel: BroadcastChannel | null = null;
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        broadcastChannel = new BroadcastChannel('fleetfoam_state_channel');
+        broadcastChannel.onmessage = () => {
+          loadBookings();
+        };
+      } catch {}
+    }
+
+    // 4. Polling fallback every 3 seconds for active dispatches
+    const pollInterval = setInterval(() => {
+      loadBookings();
+    }, 3000);
+
+    return () => {
+      window.removeEventListener(NOTIFICATIONS_CHANGE_EVENT, handleUpdate);
+      window.removeEventListener('storage', handleStorage);
+      if (broadcastChannel) broadcastChannel.close();
+      clearInterval(pollInterval);
+    };
   }, [loadBookings]);
 
   const handleCancelBooking = async (bookingId: string) => {
@@ -358,6 +395,16 @@ export default function MyAppointmentsPage() {
                 {bookings.map((booking) => {
                   const isSelected = selectedBooking?.id === booking.id;
                   const matchingJob = jobs.find((j) => j.booking_id === booking.id);
+                  const isJobAwaiting = matchingJob?.status === 'AWAITING_APPROVAL';
+                  const hasPendingNotif = Boolean(
+                    activeNotification &&
+                    activeNotification.type === 'SERVICE_AWAITING_APPROVAL' &&
+                    (activeNotification.booking_id === booking.id || activeNotification.job_id === matchingJob?.id)
+                  );
+                  const cardStatus = (booking.status === 'IN_PROGRESS' && (isJobAwaiting || hasPendingNotif))
+                    ? 'AWAITING_APPROVAL'
+                    : (matchingJob?.status === 'NEEDS_REVISIT' ? 'NEEDS_REVISIT' : booking.status);
+
                   return (
                     <button
                       key={booking.id}
@@ -373,7 +420,7 @@ export default function MyAppointmentsPage() {
                         <span className="text-xs font-mono font-bold text-slate-400">
                           #{booking.id.slice(-6)}
                         </span>
-                        <StatusBadge status={booking.status} size="sm" />
+                        <StatusBadge status={cardStatus} size="sm" />
                       </div>
 
                       <h4 className="text-sm font-extrabold text-slate-900">
@@ -413,24 +460,42 @@ export default function MyAppointmentsPage() {
             </div>
 
             {/* Appointment Details View (CUS-10) */}
-            {selectedBooking && (
-              <div className="lg:col-span-2 space-y-6">
-                <div className="stitch-card p-6 sm:p-8 space-y-6">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-slate-200">
-                    <div>
-                      <span className="text-xs font-bold uppercase text-sky-700 tracking-wider">
-                        Appointment Details &bull; #{selectedBooking.id}
-                      </span>
-                      <h2 className="text-2xl font-black text-slate-900 mt-1">
-                        {selectedBooking.vehicle_make} {selectedBooking.vehicle_model}
-                      </h2>
-                      <p className="text-xs font-semibold text-slate-500 mt-0.5">
-                        Plate Number: <span className="font-mono font-bold text-slate-800">{selectedBooking.vehicle_plate}</span>
-                      </p>
-                    </div>
+            {selectedBooking && (() => {
+              const selectedJob = jobs.find((j) => j.booking_id === selectedBooking.id);
+              const isJobAwaiting = selectedJob?.status === 'AWAITING_APPROVAL';
+              const hasPendingNotif = Boolean(
+                activeNotification &&
+                activeNotification.type === 'SERVICE_AWAITING_APPROVAL' &&
+                (activeNotification.booking_id === selectedBooking.id || activeNotification.job_id === selectedJob?.id)
+              );
+              const effectiveDetailsStatus = (selectedBooking.status === 'IN_PROGRESS' && (isJobAwaiting || hasPendingNotif))
+                ? 'AWAITING_APPROVAL'
+                : (selectedJob?.status === 'NEEDS_REVISIT' ? 'NEEDS_REVISIT' : selectedBooking.status);
 
-                    <StatusBadge status={selectedBooking.status} size="lg" />
-                  </div>
+              const isCompleted = effectiveDetailsStatus === 'COMPLETED';
+              const isCancelled = effectiveDetailsStatus === 'CANCELLED';
+              const isAwaitingApproval = effectiveDetailsStatus === 'AWAITING_APPROVAL';
+              const isNeedsRevisit = effectiveDetailsStatus === 'NEEDS_REVISIT';
+              const hasAssignee = Boolean(selectedJob?.assignee);
+
+              return (
+                <div className="lg:col-span-2 space-y-6">
+                  <div className="stitch-card p-6 sm:p-8 space-y-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-slate-200">
+                      <div>
+                        <span className="text-xs font-bold uppercase text-sky-700 tracking-wider">
+                          Appointment Details &bull; #{selectedBooking.id}
+                        </span>
+                        <h2 className="text-2xl font-black text-slate-900 mt-1">
+                          {selectedBooking.vehicle_make} {selectedBooking.vehicle_model}
+                        </h2>
+                        <p className="text-xs font-semibold text-slate-500 mt-0.5">
+                          Plate Number: <span className="font-mono font-bold text-slate-800">{selectedBooking.vehicle_plate}</span>
+                        </p>
+                      </div>
+
+                      <StatusBadge status={effectiveDetailsStatus} size="lg" />
+                    </div>
 
                   {/* Summary Grid */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -469,16 +534,7 @@ export default function MyAppointmentsPage() {
                   </div>
 
                   {/* Operational Crew & Service Assignment Status */}
-                  {(() => {
-                    const selectedJob = jobs.find((j) => j.booking_id === selectedBooking.id);
-                    const isCompleted = selectedBooking.status === 'COMPLETED';
-                    const isCancelled = selectedBooking.status === 'CANCELLED';
-                    const isAwaitingApproval = selectedBooking.status === 'AWAITING_APPROVAL';
-                    const isNeedsRevisit = selectedBooking.status === 'NEEDS_REVISIT';
-                    const hasAssignee = Boolean(selectedJob?.assignee);
-
-                    return (
-                      <div className="space-y-4">
+                  <div className="space-y-4">
                         {/* ─── CUSTOMER INSPECTION & APPROVAL CARD ───────────── */}
                         {isAwaitingApproval && (
                           <div className="p-6 rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50 to-sky-50 border-2 border-emerald-400 shadow-lg space-y-4 animate-fadeIn">
@@ -570,7 +626,7 @@ export default function MyAppointmentsPage() {
                                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-sky-500"></span>
                                 </span>
                                 <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">
-                                  Live Appointment Status: {selectedBooking.status.replace(/_/g, ' ')}
+                                  Live Appointment Status: {effectiveDetailsStatus.replace(/_/g, ' ')}
                                 </h4>
                               </div>
                               <span className="text-[11px] font-bold text-slate-500 bg-slate-200/80 px-2.5 py-0.5 rounded-full">
@@ -754,8 +810,6 @@ export default function MyAppointmentsPage() {
                           </div>
                         </div>
                       </div>
-                    );
-                  })()}
 
                   {/* Actions (Cancel vs Call vs Decision) */}
                   <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-6 border-t border-slate-200">
@@ -767,9 +821,9 @@ export default function MyAppointmentsPage() {
                       <PhoneCall size={14} className="text-sky-600" /> Contact Support
                     </button>
 
-                    {/* Prominent Customer Decision Buttons in the action bar - ONLY WHEN AWAITING APPROVAL */}
-                    {selectedBooking.status === 'AWAITING_APPROVAL' && (
-                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                    {/* Prominent Customer Decision Buttons in the action bar - DYNAMICALLY RENDERED WHEN AWAITING APPROVAL */}
+                    {isAwaitingApproval && (
+                      <div className="flex items-center gap-2 w-full sm:w-auto animate-fadeIn">
                         <button
                           type="button"
                           disabled={isSubmitting}
@@ -794,7 +848,7 @@ export default function MyAppointmentsPage() {
                       </div>
                     )}
 
-                    {selectedBooking.status !== 'CANCELLED' && selectedBooking.status !== 'COMPLETED' && (
+                    {!isAwaitingApproval && !isCancelled && !isCompleted && (
                       <button
                         type="button"
                         onClick={() => setCancelModalOpen(true)}
@@ -806,7 +860,8 @@ export default function MyAppointmentsPage() {
                   </div>
                 </div>
               </div>
-            )}
+            );
+          })()}
           </div>
         )}
 

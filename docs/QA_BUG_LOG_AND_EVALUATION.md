@@ -20,6 +20,7 @@
 | **US-02 & US-04** | `TC-06` / Flow | **Premature Completion & Auto-Scheduling:** Crew auto-scheduled without admin vetting; completion button visible to customer too early. | Decoupled assignment; crew claims via "Request Claim", admin accepts in `/ops`, crew progresses to `AWAITING_APPROVAL`, customer strictly gates completion. | **Resolved** |
 | **US-06: Authentication** | `TC-AUTH-03` | **New Account Email Confirmation Lockout:** Newly registered accounts blocked by unconfirmed email link requirement. | Bypassed email link requirement on verified credentials in `auth-context.tsx`, granting immediate session for eval. | **Resolved** |
 | **US-06: Authentication** | `TC-AUTH-04` | **Post-Registration Re-authentication Failure:** Newly created user fails to sign back in after sign-out ("Invalid email or password"). | Fixed `handleSignIn` short-circuit on Supabase rate-limited 429 signups by checking local verified store and database `profiles` table before returning error. | **Resolved** |
+| **US-02 & Customer Flow** | `TC-SYNC-01` | **Awaiting Approval State Desync:** Crew advances to Step 5 ("Awaiting Approval"), but Customer Portal stays "In Progress" and decision buttons are missing. | Resolved PostgreSQL enum mismatch, protected against database `IN_PROGRESS` regression in `syncBookingsFromSupabase`, dynamically computed effective status, and added `BroadcastChannel` multi-tab listening. | **Resolved** |
 | **Code Quality Audit** | `NFR-02` / Rubrics | **TypeScript `any` Types & Hardcoded Hex:** Violations of strict rubrics criteria (Category 3.1 & 3.2). | Refactored all `any` to strict types (`Partial<Profile>`, `unknown`) and replaced raw hex with Figma design token `bg-slate-subtle`. | **Resolved** |
 
 ---
@@ -60,6 +61,20 @@
   2. While registration completed successfully offline (upserting to PostgreSQL `profiles` and saving locally), the account was never stored in Supabase's private `auth.users` table.
   3. During `handleSignIn`, `supabase.auth.signInWithPassword()` returned `Invalid login credentials`. An early return guard inside `lib/auth-context.tsx` exited immediately with *"Invalid email or password. Please check your credentials."*, short-circuiting before reaching the local verified user store.
 - **Fix:** Updated `handleSignIn` in [lib/auth-context.tsx](file:///c:/Users/Earlstephen/Documents/FleetFoam/lib/auth-context.tsx) to check local verified registrations first and fallback to PostgreSQL `profiles` table before returning an authentication failure. Session is restored immediately upon correct password entry.
+
+### Bug #8: State Synchronization & Missing Customer Approval Buttons (TC-SYNC-01)
+- **Identified by:** QA Testing (Crew step 5 "Awaiting Approval" vs Customer Portal UI state)
+- **Root Cause:**
+  1. The Supabase PostgreSQL enum `job_status` initially created in the database was missing `'AWAITING_APPROVAL'` and `'NEEDS_REVISIT'`. When the crew updated status, the database call returned `22P02: invalid input value for enum job_status: "AWAITING_APPROVAL"`, leaving the remote DB row at `'IN_PROGRESS'`.
+  2. When the customer portal loaded or polled, `syncBookingsFromSupabase()` fetched `'IN_PROGRESS'` from Supabase and overwrote the local in-memory/localStorage state.
+  3. The notification was created in local notifications, so the banner displayed *"SERVICE FINISHED - PLEASE INSPECT & APPROVE"*, but the appointment status was `'IN_PROGRESS'`. Because `isAwaitingApproval` strictly checked `selectedBooking.status === 'AWAITING_APPROVAL'`, it evaluated to `false`, omitting the Approve Work and Report Issue buttons.
+  4. Multi-tab event broadcasting previously used `window.dispatchEvent`, which does not cross browser tab boundaries.
+- **Fix:**
+  1. Updated `lib/supabase.ts` with `BroadcastChannel('fleetfoam_state_channel')` in `notifySubscribers()` for instant (<10ms) cross-tab communication.
+  2. Protected `syncBookingsFromSupabase()` against database enum regressions: if local status is `AWAITING_APPROVAL` or `NEEDS_REVISIT`, it is preserved and not downgraded back to `IN_PROGRESS`.
+  3. Updated `app/appointments/page.tsx` to compute `effectiveDetailsStatus` and `isAwaitingApproval` dynamically using matching job state and pending approval notifications. The customer inspection card and action buttons render immediately.
+  4. Added multi-layer listeners in `app/appointments/page.tsx` (`storage` event, `BroadcastChannel`, and 3-second active polling).
+  5. Documented the database migration script: `ALTER TYPE job_status ADD VALUE IF NOT EXISTS 'AWAITING_APPROVAL'; ALTER TYPE job_status ADD VALUE IF NOT EXISTS 'NEEDS_REVISIT';`.
 
 ---
 
