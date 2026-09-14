@@ -32,3 +32,7 @@ yarn-error.log*
 # OS metadata
 .DS_Store
 Thumbs.db
+
+# Local runtime demo cache & test scripts
+/.data/
+/scripts/
