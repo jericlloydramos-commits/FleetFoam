@@ -40,6 +40,7 @@ import {
   Star,
   X,
   CalendarDays,
+  RotateCcw,
 } from 'lucide-react';
 
 export default function OperationsDashboardPage() {
@@ -163,6 +164,32 @@ export default function OperationsDashboardPage() {
     if (window.confirm('Are you sure you want to cancel and delete this dispatch order?')) {
       mockDb.deleteJob(jobId);
       loadData();
+    }
+  };
+
+  const handleResetDemoData = async () => {
+    if (window.confirm('Reset all dispatch data to clean 3-order demonstration state for instructors?')) {
+      try {
+        setIsRefreshing(true);
+        const res = await fetch('/api/jobs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'RESET_DEMO' }),
+        });
+        if (res.ok) {
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('fleetfoam_mock_jobs_v4');
+            localStorage.removeItem('fleetfoam_mock_bookings_v4');
+          }
+          await loadData();
+          setAssignmentToast('✨ Demo Data Reset Complete! Clean 3-order scenario is ready for your instructor presentation.');
+          setTimeout(() => setAssignmentToast(null), 7000);
+        }
+      } catch (err) {
+        alert('Failed to reset demo data: ' + err);
+      } finally {
+        setIsRefreshing(false);
+      }
     }
   };
 
@@ -330,6 +357,17 @@ export default function OperationsDashboardPage() {
                     Matrix Only
                   </button>
                 </div>
+
+                {/* Restart Demo Button */}
+                <button
+                  type="button"
+                  onClick={handleResetDemoData}
+                  className="px-3 py-2 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                  title="Reset all active dispatches to clean demonstration state for instructors"
+                >
+                  <RotateCcw size={14} className="text-amber-700" />
+                  <span>Restart Demo (3 Clean Orders)</span>
+                </button>
 
                 {/* Refresh Button */}
                 <button

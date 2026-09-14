@@ -122,6 +122,135 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { action, jobId, crewId, status } = body;
 
+    if (action === 'RESET_DEMO') {
+      const cleanBookings = [
+        {
+          id: '10000000-0000-0000-0000-000000000001',
+          customer_id: '7b7d8bc3-8ac5-4960-aead-eda25f942ca9',
+          service_id: '22222222-2222-2222-2222-222222222222',
+          vehicle_make: 'Ford',
+          vehicle_model: 'Ranger',
+          vehicle_plate: 'HDHR-686',
+          service_location: 'J.P. Laurel Ave, Bajada, Davao City, Mindanao',
+          appointment_date: '2026-09-14',
+          time_slot: '11:00 AM - 12:30 PM',
+          status: 'SCHEDULED'
+        },
+        {
+          id: '20000000-0000-0000-0000-000000000002',
+          customer_id: '5d04c0f9-8761-4426-91a3-e5c6f0c78767',
+          service_id: '11111111-1111-1111-1111-111111111111',
+          vehicle_make: 'Toyota',
+          vehicle_model: 'Fortuner',
+          vehicle_plate: 'HHNU-843',
+          service_location: 'BGC, Taguig City, Metro Manila',
+          appointment_date: '2026-09-14',
+          time_slot: '09:30 AM - 11:00 AM',
+          status: 'IN_PROGRESS'
+        },
+        {
+          id: '30000000-0000-0000-0000-000000000003',
+          customer_id: 'c6c8c51f-4677-4655-b6b3-bc06ba7d1398',
+          service_id: '33333333-3333-3333-3333-333333333333',
+          vehicle_make: 'Toyota',
+          vehicle_model: 'Hilux Conquest',
+          vehicle_plate: 'NQU-512',
+          service_location: 'Ayala Boulevard, Cebu City',
+          appointment_date: '2026-09-14',
+          time_slot: '01:30 PM - 03:00 PM',
+          status: 'SCHEDULED'
+        }
+      ];
+
+      if (!isMockMode) {
+        try {
+          await supabase.from('jobs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+          await supabase.from('bookings').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+          await supabase.from('bookings').upsert(cleanBookings);
+        } catch {}
+      }
+
+      const cleanJobs = [
+        {
+          id: 'job-10000001',
+          booking_id: '10000000-0000-0000-0000-000000000001',
+          status: 'SCHEDULED',
+          updated_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          assigned_to: '32251872-73cb-47ee-8274-ae076bbfa924',
+          assignee: {
+            id: '32251872-73cb-47ee-8274-ae076bbfa924',
+            email: 'amil@gmail.com',
+            name: 'Carl Amil',
+            role: 'CREW'
+          },
+          booking: {
+            ...cleanBookings[0],
+            customer_name: 'Romer DelaCruz',
+            customer_email: 'romer@gmail.com',
+            service: {
+              id: '22222222-2222-2222-2222-222222222222',
+              name: 'Full Fleet Interior & Exterior',
+              description: 'Complete exterior foam wash, spray paint sealant, deep interior vacuum, steam sanitation, and leather conditioning.',
+              duration_min: 90,
+              price: 1899.00
+            }
+          }
+        },
+        {
+          id: 'job-20000002',
+          booking_id: '20000000-0000-0000-0000-000000000002',
+          status: 'AWAITING_APPROVAL',
+          updated_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          assigned_to: '9a744ca1-a1ba-4b73-bdf3-bee33c0bee99',
+          assignee: {
+            id: '9a744ca1-a1ba-4b73-bdf3-bee33c0bee99',
+            email: 'jaylord@gmail.com',
+            name: 'Jaylord',
+            role: 'CREW'
+          },
+          booking: {
+            ...cleanBookings[1],
+            customer_name: 'EARLSTEPHEN SEÑORAN',
+            customer_email: 'e@gmail.com',
+            service: {
+              id: '11111111-1111-1111-1111-111111111111',
+              name: 'Express Foam Wash',
+              description: 'Exterior high-pressure foam bath, hand shampoo wash, tire gloss, and crystal exterior window polish.',
+              duration_min: 45,
+              price: 799.00
+            }
+          }
+        },
+        {
+          id: 'job-30000003',
+          booking_id: '30000000-0000-0000-0000-000000000003',
+          status: 'SCHEDULED',
+          updated_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          assigned_to: null,
+          assignee: null,
+          claim_status: 'NONE',
+          booking: {
+            ...cleanBookings[2],
+            customer_name: 'Mark Algones',
+            customer_email: 'algones@gmail.com',
+            service: {
+              id: '33333333-3333-3333-3333-333333333333',
+              name: 'Ceramic Shield & Engine Bay Detail',
+              description: 'Full executive detail, hydrophobic ceramic gloss coating, and comprehensive engine bay degrease.',
+              duration_min: 150,
+              price: 3499.00
+            }
+          }
+        }
+      ];
+
+      saveJobsFile(cleanJobs as unknown as Job[]);
+      return NextResponse.json({ success: true, count: cleanJobs.length, jobs: cleanJobs });
+    }
+
     const jobs = await getOrSyncAllJobs();
     const jobIndex = jobs.findIndex((j) => j.id === jobId || j.booking_id === jobId);
 
