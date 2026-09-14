@@ -101,7 +101,7 @@ export default function CrewTerminalPage() {
   const loadJobs = useCallback(() => {
     // FR-03 / AC-02.1: Crew members see their assigned jobs (or admin oversees all jobs)
     const activeJobs = user?.id
-      ? mockDb.getJobsByCrewId(user.id, profile?.role, profile?.name)
+      ? mockDb.getJobsByCrewId(user.id, profile?.role, profile?.name, user?.email)
       : mockDb.getJobs();
     setJobs(activeJobs);
     if (activeJobs.length > 0) {
@@ -132,21 +132,56 @@ export default function CrewTerminalPage() {
     }
   }, [user, profile?.role, profile?.name]);
 
-  // Auto switch to AVAILABLE tab if no assigned jobs
+  const syncJobs = useCallback(async () => {
+    try {
+      await mockDb.syncJobsFromApi();
+      loadJobs();
+    } catch {}
+  }, [loadJobs]);
+
+  // Auto switch tab based on assigned tasks
   useEffect(() => {
-    if (jobs.length === 0 && unassignedJobs.length > 0) {
+    if (jobs.length > 0) {
+      setActiveTab('ASSIGNED');
+    } else if (unassignedJobs.length > 0) {
       setActiveTab('AVAILABLE');
     }
   }, [jobs.length, unassignedJobs.length]);
 
   useEffect(() => {
+    syncJobs();
     loadJobs();
+
     const handleUpdate = () => {
       loadJobs();
+      syncJobs();
     };
+
     window.addEventListener(NOTIFICATIONS_CHANGE_EVENT, handleUpdate);
-    return () => window.removeEventListener(NOTIFICATIONS_CHANGE_EVENT, handleUpdate);
-  }, [loadJobs]);
+    window.addEventListener('storage', handleUpdate);
+
+    let bc: BroadcastChannel | null = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        bc = new BroadcastChannel('fleetfoam_state_channel');
+        bc.onmessage = () => {
+          handleUpdate();
+        };
+      }
+    } catch {}
+
+    // 3-second active heartbeat polling for live field crew dispatches
+    const timer = setInterval(() => {
+      syncJobs();
+    }, 3000);
+
+    return () => {
+      window.removeEventListener(NOTIFICATIONS_CHANGE_EVENT, handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+      if (bc) bc.close();
+      clearInterval(timer);
+    };
+  }, [loadJobs, syncJobs]);
 
   const handleRequestClaim = (jobId: string) => {
     if (!user) return;

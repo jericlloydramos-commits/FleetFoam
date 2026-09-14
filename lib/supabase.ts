@@ -706,6 +706,17 @@ export const mockDb = {
     persistStoredData();
     notifySubscribers();
 
+    // Universal server sync across tabs & profiles
+    if (typeof window !== 'undefined') {
+      try {
+        fetch('/api/jobs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'ASSIGN', jobId, crewId }),
+        }).catch(() => {});
+      } catch {}
+    }
+
     if (!isMockMode) {
       supabase
         .from('jobs')
@@ -1580,7 +1591,7 @@ export const mockDb = {
   },
 
   // ─── FR-03 / AC-02.1: Get jobs for a specific crew member ────────────────
-  getJobsByCrewId: (crewId: string, role?: string, userName?: string): Job[] => {
+  getJobsByCrewId: (crewId: string, role?: string, userName?: string, email?: string): Job[] => {
     loadStoredData();
 
     // 1. If user is OPERATIONS / Admin, they have supervisory view of all jobs
@@ -1588,11 +1599,59 @@ export const mockDb = {
       return [...mockJobs];
     }
 
-    // 2. Find jobs assigned to this specific crew member ID or assignee ID
-    const assigned = mockJobs.filter(
-      (j) => j.assigned_to === crewId || j.assignee?.id === crewId
-    );
+    // 2. Find jobs assigned to this specific crew member by ID, email, or name
+    const normalizedEmail = email?.trim().toLowerCase();
+    const normalizedName = userName?.trim().toLowerCase();
+
+    const assigned = mockJobs.filter((j) => {
+      if (j.status === 'CANCELLED') return false;
+      const matchesId = j.assigned_to === crewId || j.assignee?.id === crewId;
+      const matchesEmail = Boolean(
+        normalizedEmail &&
+        j.assignee?.email &&
+        j.assignee.email.toLowerCase() === normalizedEmail
+      );
+      const matchesName = Boolean(
+        normalizedName &&
+        j.assignee?.name &&
+        j.assignee.name.toLowerCase() === normalizedName
+      );
+      return matchesId || matchesEmail || matchesName;
+    });
 
     return assigned;
+  },
+
+  syncJobsFromApi: async (): Promise<Job[]> => {
+    loadStoredData();
+    if (typeof window !== 'undefined') {
+      try {
+        const res = await fetch('/api/jobs');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.jobs && Array.isArray(data.jobs) && data.jobs.length > 0) {
+            const merged = [...mockJobs];
+            for (const apiJob of data.jobs) {
+              const existingIdx = merged.findIndex((j) => j.id === apiJob.id || j.booking_id === apiJob.booking_id);
+              if (existingIdx !== -1) {
+                merged[existingIdx] = {
+                  ...apiJob,
+                  status: merged[existingIdx].status || apiJob.status,
+                  assigned_to: apiJob.assigned_to || merged[existingIdx].assigned_to,
+                  assignee: apiJob.assignee || merged[existingIdx].assignee,
+                };
+              } else {
+                merged.push(apiJob);
+              }
+            }
+            mockJobs = merged;
+            persistStoredData();
+          }
+        }
+      } catch (err) {
+        console.warn('Could not sync jobs from API:', err);
+      }
+    }
+    return [...mockJobs];
   },
 };

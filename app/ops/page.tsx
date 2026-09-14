@@ -68,7 +68,23 @@ export default function OperationsDashboardPage() {
       loadData();
     };
     window.addEventListener(NOTIFICATIONS_CHANGE_EVENT, handleUpdate);
-    return () => window.removeEventListener(NOTIFICATIONS_CHANGE_EVENT, handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+
+    let bc: BroadcastChannel | null = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        bc = new BroadcastChannel('fleetfoam_state_channel');
+        bc.onmessage = () => {
+          handleUpdate();
+        };
+      }
+    } catch {}
+
+    return () => {
+      window.removeEventListener(NOTIFICATIONS_CHANGE_EVENT, handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+      if (bc) bc.close();
+    };
   }, []);
 
   // Listen to tab changes from Sidebar
@@ -85,6 +101,7 @@ export default function OperationsDashboardPage() {
   const loadData = async () => {
     try {
       await mockDb.syncFromSupabase();
+      await mockDb.syncJobsFromApi();
     } catch {
       // Fallback to local store
     }
