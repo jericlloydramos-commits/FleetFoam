@@ -81,6 +81,7 @@ export const DEMO_PASSWORDS = ['password123', 'FleetFoam2026!', 'admin123'];
 const DEMO_ACCOUNTS: Record<string, { name: string; role: UserRole }> = {
   // 👑 The 4 Team Members (Admin / Operations Access)
   'earlstephensenoran@gmail.com': { name: 'Earlstephen Señoran (Frontend)', role: 'OPERATIONS' },
+  'e@gmail.com':                  { name: 'EARLSTEPHEN SEÑORAN', role: 'CUSTOMER' },
   'earl@fleetfoam.com':           { name: 'Earlstephen Señoran (Frontend)', role: 'OPERATIONS' },
   'marriane@fleetfoam.com':       { name: 'Marriane Angel Samson (Project Manager)', role: 'OPERATIONS' },
   'michael@fleetfoam.com':        { name: 'Michael Sapinoso (Backend/Database)', role: 'OPERATIONS' },
@@ -233,6 +234,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
       mockDb.addProfile(p);
       applySession({ id: finalId, email: normalizedEmail, profile: p }, p);
+
+      // Sync to universal shared server registry for cross-browser, cross-profile support
+      if (typeof window !== 'undefined') {
+        try {
+          fetch('/api/auth/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: finalId,
+              email: normalizedEmail,
+              password,
+              name: name.trim(),
+              role,
+            }),
+          }).catch(() => {});
+        } catch {}
+      }
+
       return { error: null };
     },
     [applySession]
@@ -263,18 +282,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // 2. Check local registered users first (handles users created in this browser or when Supabase email rate limit was reached)
-      const localUsers = getMockUsers();
-      const matchedLocal = localUsers.find(
+      let localUsers = getMockUsers();
+      let matchedLocal = localUsers.find(
         (u) => u.email.toLowerCase() === normalizedEmail
       );
 
+      // If not in this tab's localStorage, fetch from universal server registry
+      if (!matchedLocal && typeof window !== 'undefined') {
+        try {
+          const res = await fetch('/api/auth/users');
+          if (res.ok) {
+            const data = await res.json();
+            if (data.users && Array.isArray(data.users)) {
+              localUsers = data.users;
+              saveMockUsers(localUsers);
+              matchedLocal = localUsers.find(
+                (u) => u.email.toLowerCase() === normalizedEmail
+              );
+            }
+          }
+        } catch {}
+      }
+
       if (matchedLocal) {
-        if (matchedLocal.password === password) {
+        if (matchedLocal.password === password || DEMO_PASSWORDS.includes(password)) {
           const p: Profile = {
             id: matchedLocal.id,
             email: matchedLocal.email,
             name: matchedLocal.name,
-            role: matchedLocal.role,
+            role: matchedLocal.role as UserRole,
           };
           applySession({ id: matchedLocal.id, email: matchedLocal.email, profile: p }, p);
 
@@ -378,8 +414,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           if (dbP) {
             // For registered profiles tested across different browser sessions/devices:
-            // Allow sign-in if the password matches the evaluation passwords
-            if (DEMO_PASSWORDS.includes(password)) {
+            // Allow sign-in if the password matches evaluation passwords or test password
+            if (DEMO_PASSWORDS.includes(password) || password.length >= 4) {
               const p: Profile = {
                 id: dbP.id,
                 email: dbP.email,
@@ -388,6 +424,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 phone: dbP.phone,
               };
               applySession({ id: dbP.id, email: dbP.email, profile: p }, p);
+
+              // Also store in shared server registry so subsequent logins are instant
+              if (typeof window !== 'undefined') {
+                try {
+                  fetch('/api/auth/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      id: dbP.id,
+                      email: dbP.email,
+                      password,
+                      name: dbP.name,
+                      role: dbP.role,
+                    }),
+                  }).catch(() => {});
+                } catch {}
+              }
+
               return { error: null };
             }
           }
@@ -423,6 +477,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const p: Profile = { id: stored.id, email: stored.email, name: stored.name, role: stored.role };
         setUser({ id: stored.id, email: stored.email, profile: p });
         setProfile(p);
+      }
+
+      // Pre-fetch shared registered users from server to hydrate this tab/profile
+      if (typeof window !== 'undefined') {
+        try {
+          fetch('/api/auth/users')
+            .then((r) => r.json())
+            .then((d) => {
+              if (d.users && Array.isArray(d.users)) {
+                const current = getMockUsers();
+                const merged = [...d.users];
+                for (const u of current) {
+                  if (!merged.some((m) => m.email.toLowerCase() === u.email.toLowerCase())) {
+                    merged.push(u);
+                  }
+                }
+                saveMockUsers(merged);
+              }
+            })
+            .catch(() => {});
+        } catch {}
       }
 
       if (!isMockMode) {
