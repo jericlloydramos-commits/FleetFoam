@@ -1,0 +1,126 @@
+{
+  "info": {
+    "_postman_id": "fleetfoam-api-collection-v1",
+    "name": "FleetFoam — Backend API Test Collection",
+    "description": "Postman test suite for IT Professional Elective 5 Lab Defense (Sir Kristian Joy Arendain). Validates standard HTTP status codes: 200 OK, 400 Bad Request, and 409 Conflict.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. GET Dispatch Queue (200 OK)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/api/jobs",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "jobs"]
+        },
+        "description": "Retrieves the active central dispatch jobs ledger from Supabase and shared server store."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Check Availability — Open Slot (200 OK)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"date\": \"2026-09-25\",\n  \"time_slot\": \"01:00 PM - 03:00 PM\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/api/bookings/availability",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "bookings", "availability"]
+        },
+        "description": "Tests availability check for an open slot. Returns HTTP 200 OK with available: true."
+      },
+      "response": []
+    },
+    {
+      "name": "3. Conflict Detection — Double Booking (409 Conflict / FTC-01)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"date\": \"2026-09-14\",\n  \"time_slot\": \"09:00 AM - 11:00 AM\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/api/bookings/availability",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "bookings", "availability"]
+        },
+        "description": "Tests double-booking prevention (FTC-01). Requests an already occupied slot. Returns HTTP 409 Conflict."
+      },
+      "response": []
+    },
+    {
+      "name": "4. Missing Parameters Validation (400 Bad Request / FTC-02)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"date\": \"2026-09-25\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/api/bookings/availability",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "bookings", "availability"]
+        },
+        "description": "Tests payload validation (FTC-02). Omits the required time_slot field. Returns HTTP 400 Bad Request."
+      },
+      "response": []
+    },
+    {
+      "name": "5. Reset Demo Dispatch Queue (200 OK)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"RESET_DEMO\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/api/jobs",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "jobs"]
+        },
+        "description": "Resets the active dispatch queue back to the clean 3-order instructor demonstration state."
+      },
+      "response": []
+    }
+  ]
+}
