@@ -216,8 +216,99 @@ export default function LoginPage() {
               </button>
             </form>
 
+            {/* Quick Demo Credentials for Defense/Evaluation */}
+            <div className="mt-5 pt-4 border-t border-slate-100">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <ShieldCheck size={13} className="text-sky-600" />
+                  Evaluation Test Accounts (1-Click Login)
+                </span>
+                <span className="text-[10px] font-semibold text-slate-400 font-mono">Password: password123</span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={async () => {
+                    setError(null);
+                    setEmail('admin@fleetfoam.com');
+                    setPassword('password123');
+                    setSubmitting(true);
+                    if (user) {
+                      try { await signOut(); } catch {}
+                    }
+                    const { error: authError } = await signIn('admin@fleetfoam.com', 'password123');
+                    setSubmitting(false);
+                    if (authError) {
+                      setError(authError);
+                    } else {
+                      setSuccess(true);
+                      setTimeout(() => { window.location.href = '/ops'; }, 300);
+                    }
+                  }}
+                  className="px-2 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-sky-50 hover:border-sky-300 text-left transition-all text-xs cursor-pointer group shadow-sm disabled:opacity-50"
+                >
+                  <span className="block font-extrabold text-slate-800 group-hover:text-sky-700 text-[11px]">Operations</span>
+                  <span className="block text-slate-400 font-medium text-[9px] truncate">admin@fleetfoam.com</span>
+                  <span className="block text-sky-600 font-bold text-[9px] mt-0.5">Click to Enter →</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={async () => {
+                    setError(null);
+                    setEmail('crew@fleetfoam.com');
+                    setPassword('password123');
+                    setSubmitting(true);
+                    if (user) {
+                      try { await signOut(); } catch {}
+                    }
+                    const { error: authError } = await signIn('crew@fleetfoam.com', 'password123');
+                    setSubmitting(false);
+                    if (authError) {
+                      setError(authError);
+                    } else {
+                      setSuccess(true);
+                      setTimeout(() => { window.location.href = '/crew'; }, 300);
+                    }
+                  }}
+                  className="px-2 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-amber-50 hover:border-amber-300 text-left transition-all text-xs cursor-pointer group shadow-sm disabled:opacity-50"
+                >
+                  <span className="block font-extrabold text-slate-800 group-hover:text-amber-700 text-[11px]">Field Crew</span>
+                  <span className="block text-slate-400 font-medium text-[9px] truncate">crew@fleetfoam.com</span>
+                  <span className="block text-amber-600 font-bold text-[9px] mt-0.5">Click to Enter →</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={async () => {
+                    setError(null);
+                    setEmail('customer@fleetfoam.com');
+                    setPassword('password123');
+                    setSubmitting(true);
+                    if (user) {
+                      try { await signOut(); } catch {}
+                    }
+                    const { error: authError } = await signIn('customer@fleetfoam.com', 'password123');
+                    setSubmitting(false);
+                    if (authError) {
+                      setError(authError);
+                    } else {
+                      setSuccess(true);
+                      setTimeout(() => { window.location.href = '/booking'; }, 300);
+                    }
+                  }}
+                  className="px-2 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 text-left transition-all text-xs cursor-pointer group shadow-sm disabled:opacity-50"
+                >
+                  <span className="block font-extrabold text-slate-800 group-hover:text-emerald-700 text-[11px]">Customer</span>
+                  <span className="block text-slate-400 font-medium text-[9px] truncate">customer@fleetfoam.com</span>
+                  <span className="block text-emerald-600 font-bold text-[9px] mt-0.5">Click to Enter →</span>
+                </button>
+              </div>
+            </div>
+
             {/* System Security Notice */}
-            <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-center gap-2 text-slate-400 text-xs">
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-center gap-2 text-slate-400 text-xs">
               <ShieldCheck size={14} className="text-sky-600" />
               <span>FleetFoam Detail Coordinator • Authorized Access Only</span>
             </div>

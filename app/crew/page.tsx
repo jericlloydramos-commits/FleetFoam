@@ -29,6 +29,9 @@ import {
   XCircle,
   AlertCircle,
   ShieldAlert,
+  Trash2,
+  Star,
+  History,
 } from 'lucide-react';
 
 const STATUS_PROGRESSION: JobStatus[] = [
@@ -92,8 +95,9 @@ export default function CrewTerminalPage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [completionNotice, setCompletionNotice] = useState<string | null>(null);
   const [activeTaskNotice, setActiveTaskNotice] = useState<AppNotification | null>(null);
-  const [activeTab, setActiveTab] = useState<'ASSIGNED' | 'AVAILABLE'>('ASSIGNED');
+  const [activeTab, setActiveTab] = useState<'ASSIGNED' | 'AVAILABLE' | 'HISTORY'>('ASSIGNED');
   const [unassignedJobs, setUnassignedJobs] = useState<Job[]>([]);
+  const [completedJobs, setCompletedJobs] = useState<Job[]>([]);
   const [claimToast, setClaimToast] = useState<string | null>(null);
   const [claimAcceptedNotice, setClaimAcceptedNotice] = useState<AppNotification | null>(null);
   const [claimDeniedNotice, setClaimDeniedNotice] = useState<AppNotification | null>(null);
@@ -113,6 +117,12 @@ export default function CrewTerminalPage() {
     // Load available unassigned appointments that crew can request to claim
     const unassigned = mockDb.getUnassignedJobs();
     setUnassignedJobs(unassigned);
+
+    // Load completed jobs for crew's history section
+    if (user?.id) {
+      const history = mockDb.getCompletedJobsByCrewId(user.id, profile?.role, profile?.name, user?.email);
+      setCompletedJobs(history);
+    }
 
     // Check for unread task assignment & claim notifications for this crew member
     if (user) {
@@ -139,14 +149,24 @@ export default function CrewTerminalPage() {
     } catch {}
   }, [loadJobs]);
 
-  // Auto switch tab based on assigned tasks
+  const handleDeleteHistoryJob = (jobId: string) => {
+    if (window.confirm('Are you sure you want to remove this completed job record from your personal history?')) {
+      if (user?.id) {
+        mockDb.deleteCrewHistoryJob(jobId, user.id);
+        loadJobs();
+      }
+    }
+  };
+
+  // Auto switch tab based on assigned tasks (preserves HISTORY tab if selected)
   useEffect(() => {
+    if (activeTab === 'HISTORY') return;
     if (jobs.length > 0) {
       setActiveTab('ASSIGNED');
     } else if (unassignedJobs.length > 0) {
       setActiveTab('AVAILABLE');
     }
-  }, [jobs.length, unassignedJobs.length]);
+  }, [jobs.length, unassignedJobs.length, activeTab]);
 
   useEffect(() => {
     syncJobs();
@@ -185,7 +205,7 @@ export default function CrewTerminalPage() {
 
   const handleRequestClaim = (jobId: string) => {
     if (!user) return;
-    const res = mockDb.requestJobClaim(jobId, user.id);
+    const res = mockDb.requestJobClaim(jobId, user.id, user.email, profile?.name);
     if (res.success) {
       setClaimToast('Claim request submitted to Operations Dispatcher! Waiting for approval.');
       setTimeout(() => setClaimToast(null), 5000);
@@ -556,6 +576,26 @@ export default function CrewTerminalPage() {
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping ml-1" />
             )}
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('HISTORY')}
+            className={`flex-1 sm:flex-none min-h-[46px] px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
+              activeTab === 'HISTORY'
+                ? 'bg-amber-400 text-slate-950 shadow-md ring-2 ring-amber-400/40'
+                : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
+            }`}
+          >
+            <CheckCircle2 size={16} />
+            <span>Job History</span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-[11px] font-extrabold ${
+                activeTab === 'HISTORY' ? 'bg-slate-950 text-amber-300' : 'bg-slate-700 text-slate-200'
+              }`}
+            >
+              {completedJobs.length}
+            </span>
+          </button>
         </div>
 
         {/* FTC-03 Prominent Red Error Banner with Retry Button */}
@@ -605,13 +645,40 @@ export default function CrewTerminalPage() {
                   Appointments booked by customers waiting for specialist assignment. Submit a claim to request this job from Operations.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={loadJobs}
-                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl border border-slate-700 flex items-center gap-1.5 transition-all cursor-pointer"
-              >
-                <RefreshCw size={13} /> Refresh List
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch('/api/jobs', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'RESET_DEMO' }),
+                      });
+                      if (res.ok) {
+                        const data = await res.json();
+                        if (data.jobs && typeof window !== 'undefined') {
+                          localStorage.setItem('fleetfoam_mock_jobs_v4', JSON.stringify(data.jobs));
+                        }
+                      }
+                      window.location.reload();
+                    } catch {
+                      loadJobs();
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-rose-950/60 hover:bg-rose-900 text-rose-300 text-xs font-bold rounded-xl border border-rose-800/80 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                  title="Resets test data back to clean 3-job demonstration baseline"
+                >
+                  <RefreshCw size={13} /> Reset Clean Queue
+                </button>
+                <button
+                  type="button"
+                  onClick={loadJobs}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl border border-slate-700 flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <RefreshCw size={13} /> Refresh List
+                </button>
+              </div>
             </div>
 
             {unassignedJobs.length === 0 ? (
@@ -957,6 +1024,139 @@ export default function CrewTerminalPage() {
               </div>
             )}
           </>
+        )}
+
+        {/* ─── TAB CONTENT: COMPLETED JOB HISTORY ──────────────────────────── */}
+        {activeTab === 'HISTORY' && (
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              <div>
+                <h2 className="text-xl font-black text-white flex items-center gap-2">
+                  <CheckCircle2 className="text-emerald-400" size={20} />
+                  Completed Services &amp; Job History ({completedJobs.length})
+                </h2>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">
+                  Detailed records of all appointments finished and approved by customers. You can clear past records from your personal view.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={loadJobs}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl border border-slate-700 flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <RefreshCw size={13} /> Refresh History
+              </button>
+            </div>
+
+            {completedJobs.length === 0 ? (
+              <div className="stitch-card p-10 text-center max-w-lg mx-auto my-6 border-2 border-dashed border-slate-700 bg-slate-900/60 text-slate-300">
+                <div className="w-14 h-14 rounded-2xl bg-slate-800 text-slate-400 flex items-center justify-center mx-auto mb-3 border border-slate-700">
+                  <CheckCircle2 size={28} className="text-slate-500" />
+                </div>
+                <h3 className="text-base font-extrabold text-white">No Completed Job Records</h3>
+                <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto leading-relaxed">
+                  Jobs you complete on-site that are inspected and approved by customers will be archived here in your personal history.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {completedJobs.map((job) => {
+                  return (
+                    <div
+                      key={job.id}
+                      className="stitch-card p-5 sm:p-6 border-2 border-slate-700/80 bg-slate-900/90 text-white rounded-2xl space-y-4 hover:border-emerald-500/60 transition-all shadow-lg"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs font-bold text-emerald-400 bg-emerald-400/10 px-2.5 py-0.5 rounded border border-emerald-400/30">
+                              #{job.id.substring(0, 8)}
+                            </span>
+                            <span className="text-xs font-bold text-slate-400">
+                              {job.booking?.service?.name}
+                            </span>
+                          </div>
+                          <h3 className="text-xl font-black text-white mt-1.5">
+                            {job.booking?.vehicle_make} {job.booking?.vehicle_model}
+                          </h3>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs font-mono font-bold px-2 py-0.5 bg-slate-800 text-slate-200 border border-slate-700 rounded">
+                              PLATE: {job.booking?.vehicle_plate}
+                            </span>
+                            <span className="text-xs font-bold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded border border-emerald-400/30">
+                              ₱{job.booking?.service?.price?.toLocaleString() || '1,899'} PHP
+                            </span>
+                          </div>
+                        </div>
+
+                        <StatusBadge status="COMPLETED" size="sm" />
+                      </div>
+
+                      {/* Location & Time */}
+                      <div className="bg-slate-800/80 p-3.5 rounded-xl border border-slate-700/80 space-y-2 text-xs">
+                        <div className="flex items-start gap-2">
+                          <MapPin size={14} className="text-rose-400 shrink-0 mt-0.5" />
+                          <span className="text-slate-200 font-bold leading-snug">
+                            {job.booking?.service_location}
+                            {job.booking?.city && ` (${job.booking.city})`}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-slate-300 font-medium">
+                          <Clock size={14} className="text-sky-400 shrink-0" />
+                          <span>
+                            {job.booking?.appointment_date} &bull; Window: <strong>{job.booking?.time_slot}</strong>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Customer Rating & Approval Verification */}
+                      <div className="bg-emerald-950/40 p-3 rounded-xl border border-emerald-800/50 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1">
+                            <CheckCircle2 size={13} /> Customer Sign-Off Verified
+                          </span>
+                          {job.rating && (
+                            <div className="flex items-center gap-1 text-amber-400">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  size={13}
+                                  className={star <= job.rating! ? 'fill-amber-400 text-amber-400' : 'text-slate-600'}
+                                />
+                              ))}
+                              <span className="text-xs font-extrabold text-amber-300 ml-1">
+                                {job.rating}.0
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        {job.review && (
+                          <p className="text-xs text-slate-300 italic">
+                            &ldquo;{job.review}&rdquo;
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Card Footer Actions */}
+                      <div className="pt-2 border-t border-slate-800 flex items-center justify-between gap-3">
+                        <span className="text-[11px] text-slate-400 font-medium">
+                          Archived in Crew Records
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteHistoryJob(job.id)}
+                          className="px-3.5 py-2 bg-rose-950/60 hover:bg-rose-900 text-rose-300 hover:text-white border border-rose-800/80 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                          title="Remove this completed job record from your personal history"
+                        >
+                          <Trash2 size={14} /> Delete from History
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
       </main>
       </div>

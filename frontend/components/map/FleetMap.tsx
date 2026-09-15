@@ -106,7 +106,55 @@ export default function FleetMap({
     async function initLeaflet() {
       if (!mapContainerRef.current || mapInstanceRef.current) return;
 
+      // Guard against Leaflet container re-initialization in React StrictMode
+      if ((mapContainerRef.current as any)?._leaflet_id) {
+        delete (mapContainerRef.current as any)._leaflet_id;
+      }
+
       const L = (await import('leaflet')).default;
+
+      // ── GLOBAL SAFEGUARD: Monkey-patch L.DomUtil.getPosition ──
+      // Completely eliminates: "TypeError: Cannot read properties of undefined (reading '_leaflet_pos')"
+      if (L.DomUtil && L.DomUtil.getPosition) {
+        const origGetPosition = L.DomUtil.getPosition;
+        L.DomUtil.getPosition = function (el: any) {
+          if (!el) return new L.Point(0, 0);
+          try {
+            return origGetPosition(el) || new L.Point(0, 0);
+          } catch {
+            return new L.Point(0, 0);
+          }
+        };
+      }
+
+      if (L.Map && L.Map.prototype) {
+        const proto = L.Map.prototype as any;
+        if (proto._getMapPanePos) {
+          const origProtoGetMapPanePos = proto._getMapPanePos;
+          proto._getMapPanePos = function () {
+            if (!this._mapPane) return new L.Point(0, 0);
+            try {
+              return origProtoGetMapPanePos.call(this) || new L.Point(0, 0);
+            } catch {
+              return new L.Point(0, 0);
+            }
+          };
+        }
+        if (proto._onZoomTransitionEnd) {
+          const origProtoOnZoomTransitionEnd = proto._onZoomTransitionEnd;
+          proto._onZoomTransitionEnd = function () {
+            if (!this._mapPane || !this._container) {
+              this._animatingZoom = false;
+              return;
+            }
+            try {
+              origProtoOnZoomTransitionEnd.call(this);
+            } catch {
+              this._animatingZoom = false;
+            }
+          };
+        }
+      }
 
       if (!isMounted || !mapContainerRef.current) return;
 
@@ -115,6 +163,9 @@ export default function FleetMap({
         center: [14.5547, 121.04],
         zoom: 12,
         zoomControl: false,
+        zoomAnimation: false,
+        fadeAnimation: false,
+        markerZoomAnimation: false,
         attributionControl: true,
       });
 
@@ -138,8 +189,21 @@ export default function FleetMap({
     return () => {
       isMounted = false;
       if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
+        try {
+          const map = mapInstanceRef.current;
+          map.stop(); // Stop any pending animation/zoom transitions immediately
+          (map as any)._animatingZoom = false;
+          map.off();  // Unbind all event listeners
+          map.remove();
+        } catch (err) {
+          console.warn('Leaflet cleanup exception handled:', err);
+        }
         mapInstanceRef.current = null;
+      }
+      if (mapContainerRef.current) {
+        try {
+          delete (mapContainerRef.current as any)._leaflet_id;
+        } catch {}
       }
     };
   }, []);
@@ -296,7 +360,9 @@ export default function FleetMap({
 
       // Auto fit bounds only if user hasn't engaged manual live GPS
       if (bounds.isValid() && jobs.length > 0 && !userCoords) {
-        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+        try {
+          map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14, animate: false });
+        } catch {}
       }
     }
 
@@ -439,25 +505,31 @@ export default function FleetMap({
 
   // Fly to Mindanao Regional Hub (Davao / CDO)
   const handleFlyToMindanao = () => {
-    if (!mapInstanceRef.current) return;
-    mapInstanceRef.current.flyTo([7.1907, 125.4578], 11, { duration: 1.4 });
+    if (!mapInstanceRef.current || !mapInstanceRef.current._mapPane) return;
+    try {
+      mapInstanceRef.current.flyTo([7.1907, 125.4578], 11, { duration: 1.4 });
+    } catch {}
   };
 
   // Fly to NCR / Metro Manila Hub
   const handleFlyToManila = () => {
-    if (!mapInstanceRef.current) return;
-    mapInstanceRef.current.flyTo([14.5547, 121.04], 12, { duration: 1.4 });
+    if (!mapInstanceRef.current || !mapInstanceRef.current._mapPane) return;
+    try {
+      mapInstanceRef.current.flyTo([14.5547, 121.04], 12, { duration: 1.4 });
+    } catch {}
   };
 
   // Recenter Map over all active job units
   const handleRecenter = async () => {
-    if (!mapInstanceRef.current || jobs.length === 0) return;
-    const L = (await import('leaflet')).default;
-    const bounds = L.latLngBounds([]);
-    jobs.forEach((job, idx) => bounds.extend(resolveCoords(job, idx)));
-    if (bounds.isValid()) {
-      mapInstanceRef.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
-    }
+    if (!mapInstanceRef.current || !mapInstanceRef.current._mapPane || jobs.length === 0) return;
+    try {
+      const L = (await import('leaflet')).default;
+      const bounds = L.latLngBounds([]);
+      jobs.forEach((job, idx) => bounds.extend(resolveCoords(job, idx)));
+      if (bounds.isValid() && mapInstanceRef.current?._mapPane) {
+        mapInstanceRef.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 14, animate: false });
+      }
+    } catch {}
   };
 
   return (

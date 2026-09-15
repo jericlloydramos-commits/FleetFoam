@@ -34,5 +34,6 @@ yarn-error.log*
 Thumbs.db
 
 # Local runtime demo cache & test scripts
-/.data/
+.data/
+**/.data/
 /scripts/

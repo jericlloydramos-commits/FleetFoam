@@ -595,30 +595,95 @@ export default function OperationsDashboardPage() {
                   );
                 })()}
 
-                {/* Pending Crew Claim Requests Alert Banner */}
+                {/* Pending Crew Claim Requests Alert Banner & Action Desk */}
                 {(() => {
                   const pendingClaims = jobs.filter(
                     (j) => j.claim_status === 'PENDING' && !j.assigned_to && j.status !== 'CANCELLED'
                   );
                   if (pendingClaims.length === 0) return null;
                   return (
-                    <div className="p-4 rounded-2xl bg-amber-500 text-slate-950 border-2 border-amber-600 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fadeIn">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl bg-slate-950 text-amber-300 flex items-center justify-center font-bold shrink-0">
-                          <Hand size={20} className="animate-bounce" />
+                    <div className="space-y-3">
+                      <div className="p-4 rounded-2xl bg-amber-500 text-slate-950 border-2 border-amber-600 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fadeIn">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-2xl bg-slate-950 text-amber-300 flex items-center justify-center font-bold shrink-0">
+                            <Hand size={20} className="animate-bounce" />
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-black uppercase tracking-wider text-slate-950">
+                              ✋ {pendingClaims.length} Crew Claim Request{pendingClaims.length > 1 ? 's' : ''} Pending Review
+                            </h4>
+                            <p className="text-xs font-bold text-slate-900 mt-0.5">
+                              Specialist(s) sent request to claim unassigned appointment(s). Review each request card below to Accept or Deny.
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <h4 className="text-xs font-black uppercase tracking-wider text-slate-950">
-                            ✋ {pendingClaims.length} Crew Claim Request{pendingClaims.length > 1 ? 's' : ''} Pending Review
-                          </h4>
-                          <p className="text-xs font-bold text-slate-900 mt-0.5">
-                            Specialist(s) sent request to claim unassigned appointment(s). Review each request card below to Accept or Deny.
-                          </p>
-                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-widest bg-slate-950 text-amber-300 px-3 py-1 rounded-xl shadow-xs">
+                          Action Required
+                        </span>
                       </div>
-                      <span className="text-[10px] font-black uppercase tracking-widest bg-slate-950 text-amber-300 px-3 py-1 rounded-xl shadow-xs">
-                        Action Required
-                      </span>
+
+                      {/* Immediate Action Desk Cards */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                        {pendingClaims.map((claimJob) => (
+                          <div
+                            key={claimJob.id}
+                            className="p-4 rounded-2xl bg-amber-50/80 border-2 border-amber-400 shadow-sm space-y-3"
+                          >
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono text-[10px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
+                                    #{claimJob.id.substring(0, 8)}
+                                  </span>
+                                  <span className="text-[11px] font-bold text-slate-500">
+                                    {claimJob.booking?.service?.name}
+                                  </span>
+                                </div>
+                                <h4 className="text-sm font-black text-slate-900 mt-1">
+                                  {claimJob.booking?.vehicle_make} {claimJob.booking?.vehicle_model}
+                                </h4>
+                                <span className="text-xs font-mono font-bold text-slate-700">
+                                  Plate: {claimJob.booking?.vehicle_plate} &bull; {claimJob.booking?.service_location}
+                                </span>
+                              </div>
+                              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                ₱{claimJob.booking?.service?.price?.toLocaleString() || '1,899'} PHP
+                              </span>
+                            </div>
+
+                            <div className="p-2.5 rounded-xl bg-white border border-amber-200 text-xs text-slate-800 flex items-center justify-between">
+                              <span>
+                                Specialist: <strong className="text-slate-950 font-black">{claimJob.claim_requester?.name || 'Field Specialist'}</strong>
+                              </span>
+                              <span className="text-[10px] font-mono text-slate-500">
+                                {claimJob.claim_requested_at
+                                  ? new Date(claimJob.claim_requested_at).toLocaleTimeString([], {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })
+                                  : 'Just now'}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2 pt-1">
+                              <button
+                                type="button"
+                                onClick={() => handleAcceptClaim(claimJob.id)}
+                                className="flex-1 min-h-[40px] py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                              >
+                                <CheckCircle2 size={15} /> Approve &amp; Assign
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDenyClaim(claimJob.id)}
+                                className="flex-1 min-h-[40px] py-2 px-3 bg-white hover:bg-rose-50 text-rose-700 border border-rose-300 font-black text-xs uppercase tracking-wider rounded-xl shadow-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                              >
+                                <XCircle size={15} /> Decline
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   );
                 })()}
@@ -716,7 +781,20 @@ export default function OperationsDashboardPage() {
                                 </span>
                               </div>
                             </div>
-                            <StatusBadge status={job.status} size="md" />
+                            <div className="flex items-center gap-2">
+                              <StatusBadge status={job.status} size="md" />
+                              {job.status === 'COMPLETED' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteJob(job.id)}
+                                  className="px-2.5 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-900 border border-rose-300 font-bold text-xs flex items-center gap-1 shadow-2xs transition-all cursor-pointer hover:scale-105 active:scale-95"
+                                  title="Clear completed job from active dispatch queue"
+                                >
+                                  <Trash2 size={13} className="text-rose-600" />
+                                  <span>Delete</span>
+                                </button>
+                              )}
+                            </div>
                           </div>
 
                           {/* Philippine Location & Schedule */}
@@ -748,47 +826,6 @@ export default function OperationsDashboardPage() {
                               )}
                             </div>
                           </div>
-
-                          {/* Crew Claim Request Action Box (Admin Review) */}
-                          {job.claim_status === 'PENDING' && (
-                            <div className="p-3.5 rounded-xl bg-amber-50 border-2 border-amber-400 space-y-2.5">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <Hand size={16} className="text-amber-700" />
-                                  <span className="text-xs font-black uppercase text-amber-950">
-                                    Crew Claim Request
-                                  </span>
-                                </div>
-                                <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-200 text-amber-900 rounded font-mono">
-                                  {job.claim_requested_at
-                                    ? new Date(job.claim_requested_at).toLocaleTimeString([], {
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                      })
-                                    : 'Pending'}
-                                </span>
-                              </div>
-                              <p className="text-xs text-slate-800">
-                                Specialist <strong className="text-slate-950 font-black">{job.claim_requester?.name || 'Crew Member'}</strong> requested to service this appointment.
-                              </p>
-                              <div className="flex items-center gap-2 pt-1">
-                                <button
-                                  type="button"
-                                  onClick={() => handleAcceptClaim(job.id)}
-                                  className="flex-1 min-h-[38px] px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider rounded-lg shadow-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                                >
-                                  <CheckCircle2 size={14} /> Accept Claim
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDenyClaim(job.id)}
-                                  className="flex-1 min-h-[38px] px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs uppercase tracking-wider rounded-lg shadow-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                                >
-                                  <XCircle size={14} /> Deny Claim
-                                </button>
-                              </div>
-                            </div>
-                          )}
 
                           {/* Customer Dissatisfaction Feedback & Re-schedule Button */}
                           {job.status === 'NEEDS_REVISIT' && (
@@ -876,82 +913,126 @@ export default function OperationsDashboardPage() {
                             </div>
                           )}
 
-                          {/* Action Controls & Deletion */}
-                          <div className="pt-2 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                            {/* Crew Assignment Dropdown */}
-                            <div className="flex items-center gap-2 w-full sm:w-auto">
-                              <UserCheck
-                                size={16}
-                                className={
-                                  job.status === 'COMPLETED'
-                                    ? 'text-slate-400'
-                                    : !job.assigned_to
-                                    ? 'text-amber-600'
-                                    : 'text-slate-500'
-                                }
-                              />
-                              <select
-                                value={job.assigned_to || ''}
-                                onChange={(e) => handleCrewAssign(job.id, e.target.value)}
-                                disabled={job.status === 'COMPLETED'}
-                                title={
-                                  job.status === 'COMPLETED'
-                                    ? 'Service completed. Crew assignment is locked.'
-                                    : 'Assign field crew specialist'
-                                }
-                                className={`rounded-xl px-2.5 py-1.5 text-xs font-semibold focus:ring-2 focus:ring-sky-500 w-full sm:w-auto transition-all ${
-                                  job.status === 'COMPLETED'
-                                    ? 'bg-slate-100 border border-slate-200 text-slate-500 cursor-not-allowed select-none font-bold shadow-none'
-                                    : !job.assigned_to && job.status !== 'CANCELLED'
-                                    ? 'bg-amber-50 border-2 border-amber-400 text-amber-900 font-bold shadow-xs'
-                                    : 'bg-white border border-slate-300 text-slate-800'
-                                }`}
-                              >
-                                <option value="">-- Assign Crew Van --</option>
-                                {crewMembers.map((cm) => (
-                                  <option key={cm.id} value={cm.id}>
-                                    {cm.name}
-                                  </option>
-                                ))}
-                                {job.assigned_to && !crewMembers.some((cm) => cm.id === job.assigned_to) && (
-                                  <option value={job.assigned_to}>
-                                    {job.assignee?.name || 'Assigned Specialist'}
-                                  </option>
-                                )}
-                              </select>
+                          {/* Action Controls & Deletion Footer */}
+                          <div className="pt-3 border-t border-slate-200 flex items-center justify-between gap-2.5">
+                            {/* Left Side: Crew Assignment Dropdown OR Pending Crew Request Controls OR Completed Archive Bar */}
+                            <div className="flex-1 min-w-0">
+                              {job.status === 'COMPLETED' ? (
+                                <div className="flex items-center justify-between gap-2 bg-emerald-50/90 border border-emerald-300 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-950 shadow-2xs">
+                                  <div className="flex items-center gap-1.5 truncate">
+                                    <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
+                                    <span className="truncate text-emerald-900">
+                                      Finished &amp; Approved &bull; {job.assignee?.name || 'Crew Specialist'}
+                                    </span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteJob(job.id)}
+                                    className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white font-black text-[11px] uppercase tracking-wider rounded-lg shadow-xs flex items-center gap-1 transition-all cursor-pointer hover:scale-105 active:scale-95 shrink-0"
+                                    title="Delete and clear completed job from active dispatch queue"
+                                  >
+                                    <Trash2 size={12} />
+                                    <span>Delete from Queue</span>
+                                  </button>
+                                </div>
+                              ) : job.claim_status === 'PENDING' && !job.assigned_to ? (
+                                <div className="flex items-center justify-between gap-2 bg-amber-50 border-2 border-amber-400 px-3 py-1 rounded-xl shadow-xs animate-fadeIn">
+                                  <div className="flex items-center gap-1.5 text-xs text-amber-950 font-bold min-w-0 truncate">
+                                    <Hand size={14} className="text-amber-600 shrink-0 animate-bounce" />
+                                    <span className="truncate">
+                                      Claim: <strong className="font-black text-slate-900">{job.claim_requester?.name || 'Specialist'}</strong>
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAcceptClaim(job.id)}
+                                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] uppercase tracking-wider rounded-lg shadow-xs flex items-center gap-1 transition-all cursor-pointer hover:scale-105 active:scale-95"
+                                      title="Approve claim and assign specialist"
+                                    >
+                                      <CheckCircle2 size={13} />
+                                      <span>Approve</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDenyClaim(job.id)}
+                                      className="px-2.5 py-1 bg-white hover:bg-rose-50 text-rose-700 border border-rose-300 hover:border-rose-400 font-black text-[11px] uppercase tracking-wider rounded-lg shadow-xs flex items-center gap-1 transition-all cursor-pointer hover:scale-105 active:scale-95"
+                                      title="Deny claim and leave unassigned"
+                                    >
+                                      <XCircle size={13} />
+                                      <span>Deny</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <UserCheck
+                                    size={16}
+                                    className={
+                                      !job.assigned_to
+                                        ? 'text-amber-600 shrink-0'
+                                        : 'text-slate-500 shrink-0'
+                                    }
+                                  />
+                                  <select
+                                    value={job.assigned_to || ''}
+                                    onChange={(e) => handleCrewAssign(job.id, e.target.value)}
+                                    title="Assign field crew specialist"
+                                    className={`rounded-xl px-2.5 py-1.5 text-xs font-semibold focus:ring-2 focus:ring-sky-500 w-full max-w-[210px] transition-all truncate ${
+                                      !job.assigned_to && job.status !== 'CANCELLED'
+                                        ? 'bg-amber-50 border-2 border-amber-400 text-amber-900 font-bold shadow-xs'
+                                        : 'bg-white border border-slate-300 text-slate-800'
+                                    }`}
+                                  >
+                                    <option value="">-- Assign Crew Van --</option>
+                                    {crewMembers.map((cm) => (
+                                      <option key={cm.id} value={cm.id}>
+                                        {cm.name}
+                                      </option>
+                                    ))}
+                                    {job.assigned_to && !crewMembers.some((cm) => cm.id === job.assigned_to) && (
+                                      <option value={job.assigned_to}>
+                                        {job.assignee?.name || 'Assigned Specialist'}
+                                      </option>
+                                    )}
+                                  </select>
+                                </div>
+                              )}
                             </div>
 
-                            <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
-                              {/* Status Override */}
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] text-slate-400 font-bold uppercase">Status:</span>
+                            {/* Right Side: Compact Status Override & Delete Button */}
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {/* Status Override Pill */}
+                              <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 shadow-2xs">
+                                <span className="text-[10px] text-slate-400 font-black uppercase tracking-wider">Status:</span>
                                 <select
                                   value={job.status}
                                   onChange={(e) =>
                                     handleStatusOverride(job.id, e.target.value as JobStatus)
                                   }
-                                  className="bg-white border border-slate-300 text-slate-800 rounded-xl px-2.5 py-1.5 text-xs font-bold focus:ring-2 focus:ring-sky-500"
+                                  className="bg-transparent text-slate-900 font-bold text-xs focus:outline-none cursor-pointer max-w-[130px]"
                                 >
                                   <option value="SCHEDULED">SCHEDULED</option>
                                   <option value="ON_THE_WAY">ON THE WAY</option>
                                   <option value="ARRIVED">ARRIVED</option>
                                   <option value="IN_PROGRESS">IN PROGRESS</option>
-                                  <option value="AWAITING_APPROVAL">AWAITING APPROVAL</option>
+                                  <option value="AWAITING_APPROVAL">AWAIT APPROVAL</option>
                                   <option value="NEEDS_REVISIT">NEEDS REVISIT</option>
                                   <option value="COMPLETED" disabled={job.status !== 'COMPLETED'}>
-                                    {job.status === 'COMPLETED' ? 'COMPLETED (Customer Approved)' : 'COMPLETED (Requires Customer Approval)'}
+                                    COMPLETED
                                   </option>
                                   <option value="CANCELLED">CANCELLED</option>
                                   <option value="DELAYED">DELAYED</option>
                                 </select>
                               </div>
 
-                              {/* Order Deletion / Cancellation Action */}
+                              {/* Order Deletion Button */}
                               <button
                                 type="button"
                                 onClick={() => handleDeleteJob(job.id)}
-                                className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-all"
-                                title="Delete / Cancel Order"
+                                className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 hover:border-rose-300 transition-all cursor-pointer shadow-xs flex items-center justify-center shrink-0"
+                                title="Cancel and delete this dispatch order"
+                                aria-label="Delete order"
                               >
                                 <Trash2 size={16} />
                               </button>

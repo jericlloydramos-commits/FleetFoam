@@ -25,6 +25,7 @@ import {
   Star,
   RefreshCw,
   Lock,
+  Trash2,
 } from 'lucide-react';
 
 export default function MyAppointmentsPage() {
@@ -43,6 +44,7 @@ export default function MyAppointmentsPage() {
   const [feedbackText, setFeedbackText] = useState('');
   const [actionToast, setActionToast] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState<'ALL' | 'ACTIVE' | 'HISTORY'>('ALL');
 
   const loadBookings = useCallback(async () => {
     if (!user) {
@@ -144,6 +146,15 @@ export default function MyAppointmentsPage() {
     setCancelModalOpen(false);
     setCancellationSuccess(true);
     setTimeout(() => setCancellationSuccess(false), 4000);
+  };
+
+  const handleDeleteBooking = async (bookingId: string) => {
+    if (window.confirm('Are you sure you want to permanently remove this past appointment record from your history?')) {
+      mockDb.deleteBooking(bookingId);
+      setActionToast('Past appointment record successfully removed from your history.');
+      setTimeout(() => setActionToast(null), 5000);
+      await loadBookings();
+    }
   };
 
   // Customer clicks "Approve Work" -> marks service as completed and triggers rating feature right after
@@ -387,41 +398,109 @@ export default function MyAppointmentsPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Appointments List (CUS-09) */}
             <div className="space-y-3 lg:col-span-1">
-              <span className="text-xs font-bold uppercase text-slate-400 tracking-wider block">
-                Your Bookings ({bookings.length})
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase text-slate-400 tracking-wider block">
+                  Your Bookings
+                </span>
+                <span className="text-[11px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
+                  Total: {bookings.length}
+                </span>
+              </div>
 
-              <div className="space-y-2">
-                {bookings.map((booking) => {
-                  const isSelected = selectedBooking?.id === booking.id;
-                  const matchingJob = jobs.find((j) => j.booking_id === booking.id);
-                  const isJobAwaiting = matchingJob?.status === 'AWAITING_APPROVAL';
-                  const hasPendingNotif = Boolean(
-                    activeNotification &&
-                    activeNotification.type === 'SERVICE_AWAITING_APPROVAL' &&
-                    (activeNotification.booking_id === booking.id || activeNotification.job_id === matchingJob?.id)
-                  );
-                  const cardStatus = (booking.status === 'IN_PROGRESS' && (isJobAwaiting || hasPendingNotif))
-                    ? 'AWAITING_APPROVAL'
-                    : (matchingJob?.status === 'NEEDS_REVISIT' ? 'NEEDS_REVISIT' : booking.status);
+              {/* View Filter Tabs */}
+              <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setHistoryFilter('ALL')}
+                  className={`flex-1 py-1 px-2 rounded-lg font-bold transition-all cursor-pointer ${
+                    historyFilter === 'ALL' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  All ({bookings.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHistoryFilter('ACTIVE')}
+                  className={`flex-1 py-1 px-2 rounded-lg font-bold transition-all cursor-pointer ${
+                    historyFilter === 'ACTIVE' ? 'bg-white text-sky-700 shadow-2xs' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  Active ({bookings.filter(b => b.status !== 'COMPLETED' && b.status !== 'CANCELLED').length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHistoryFilter('HISTORY')}
+                  className={`flex-1 py-1 px-2 rounded-lg font-bold transition-all cursor-pointer ${
+                    historyFilter === 'HISTORY' ? 'bg-white text-emerald-700 shadow-2xs' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  History ({bookings.filter(b => b.status === 'COMPLETED' || b.status === 'CANCELLED').length})
+                </button>
+              </div>
 
+              {(() => {
+                const displayBookings = bookings.filter((b) => {
+                  if (historyFilter === 'ACTIVE') return b.status !== 'COMPLETED' && b.status !== 'CANCELLED';
+                  if (historyFilter === 'HISTORY') return b.status === 'COMPLETED' || b.status === 'CANCELLED';
+                  return true;
+                });
+
+                if (displayBookings.length === 0) {
                   return (
-                    <button
-                      key={booking.id}
-                      type="button"
-                      onClick={() => setSelectedBooking(booking)}
-                      className={`w-full text-left p-4 rounded-2xl border transition-all ${
-                        isSelected
-                          ? 'bg-sky-50/80 border-sky-400 shadow-sm ring-2 ring-sky-200'
-                          : 'bg-white border-slate-200 hover:border-slate-300'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <span className="text-xs font-mono font-bold text-slate-400">
-                          #{booking.id.slice(-6)}
-                        </span>
-                        <StatusBadge status={cardStatus} size="sm" />
-                      </div>
+                    <div className="p-6 text-center bg-white rounded-2xl border border-slate-200 text-xs text-slate-500">
+                      No {historyFilter === 'HISTORY' ? 'past completed/cancelled' : 'active'} appointments found.
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-2">
+                    {displayBookings.map((booking) => {
+                      const isSelected = selectedBooking?.id === booking.id;
+                      const matchingJob = jobs.find((j) => j.booking_id === booking.id);
+                      const isJobAwaiting = matchingJob?.status === 'AWAITING_APPROVAL';
+                      const hasPendingNotif = Boolean(
+                        activeNotification &&
+                        activeNotification.type === 'SERVICE_AWAITING_APPROVAL' &&
+                        (activeNotification.booking_id === booking.id || activeNotification.job_id === matchingJob?.id)
+                      );
+                      const cardStatus = (booking.status === 'IN_PROGRESS' && (isJobAwaiting || hasPendingNotif))
+                        ? 'AWAITING_APPROVAL'
+                        : (matchingJob?.status === 'NEEDS_REVISIT' ? 'NEEDS_REVISIT' : booking.status);
+
+                      return (
+                        <button
+                          key={booking.id}
+                          type="button"
+                          onClick={() => setSelectedBooking(booking)}
+                          className={`w-full text-left p-4 rounded-2xl border transition-all ${
+                            isSelected
+                              ? 'bg-sky-50/80 border-sky-400 shadow-sm ring-2 ring-sky-200'
+                              : 'bg-white border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="text-xs font-mono font-bold text-slate-400">
+                              #{booking.id.slice(-6)}
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <StatusBadge status={cardStatus} size="sm" />
+                              {(booking.status === 'COMPLETED' || booking.status === 'CANCELLED') && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteBooking(booking.id);
+                                  }}
+                                  className="p-1 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-transparent hover:border-rose-200 transition-colors cursor-pointer"
+                                  title="Delete appointment record from history"
+                                  aria-label="Delete appointment from history"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
 
                       <h4 className="text-sm font-extrabold text-slate-900">
                         {booking.vehicle_make} {booking.vehicle_model}
@@ -457,7 +536,9 @@ export default function MyAppointmentsPage() {
                   );
                 })}
               </div>
-            </div>
+            );
+          })()}
+        </div>
 
             {/* Appointment Details View (CUS-10) */}
             {selectedBooking && (() => {
@@ -855,6 +936,17 @@ export default function MyAppointmentsPage() {
                         className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-50 hover:bg-rose-50 text-slate-500 hover:text-rose-700 border border-slate-200 hover:border-rose-200 text-xs font-bold flex items-center justify-center gap-2 transition-all min-h-[44px]"
                       >
                         <XCircle size={16} /> Cancel Appointment
+                      </button>
+                    )}
+
+                    {(isCompleted || isCancelled) && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteBooking(selectedBooking.id)}
+                        className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-900 border border-rose-300 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all min-h-[44px] cursor-pointer shadow-2xs hover:scale-[1.01] active:scale-[0.99]"
+                        title="Permanently remove this past appointment record from your view"
+                      >
+                        <Trash2 size={16} className="text-rose-600" /> Delete Record from History
                       </button>
                     )}
                   </div>

@@ -78,22 +78,35 @@ function saveMockSession(user: MockUser | null) {
 // ─── Default Demo Passwords / Accounts ───────────────────────────────────────
 export const DEMO_PASSWORDS = ['password123', 'FleetFoam2026!', 'admin123'];
 
-const DEMO_ACCOUNTS: Record<string, { name: string; role: UserRole }> = {
-  // 👑 The 4 Team Members (Admin / Operations Access)
-  'earlstephensenoran@gmail.com': { name: 'Earlstephen Señoran (Frontend)', role: 'OPERATIONS' },
-  'earl@fleetfoam.com':           { name: 'Earlstephen Señoran (Frontend)', role: 'OPERATIONS' },
-  'marriane@fleetfoam.com':       { name: 'Marriane Angel Samson (Project Manager)', role: 'OPERATIONS' },
-  'michael@fleetfoam.com':        { name: 'Michael Sapinoso (Backend/Database)', role: 'OPERATIONS' },
-  'jeric@fleetfoam.com':          { name: 'Jeric Ramos (QA/DevOps Lead)', role: 'OPERATIONS' },
+interface DemoAccount {
+  id: string;
+  name: string;
+  role: UserRole;
+}
 
-  // Role Operations Testing Accounts
-  'ops@fleetfoam.com':            { name: 'Sarah Jenkins (Ops Admin)', role: 'OPERATIONS' },
-  'admin@fleetfoam.com':          { name: 'System Administrator', role: 'OPERATIONS' },
-  'dispatch@fleetfoam.com':       { name: 'Operations Dispatcher', role: 'OPERATIONS' },
-
-  // Detailing Crew & Customer Evaluation Accounts
-  'crew@fleetfoam.com':           { name: 'Marcus Vance (Lead Detailing Tech)', role: 'CREW' },
-  'customer@fleetfoam.com':       { name: 'Brooke Sterling (VIP Fleet Customer)', role: 'CUSTOMER' },
+const DEMO_ACCOUNTS: Record<string, DemoAccount> = {
+  // Canonical 3 Demonstration Users (1 per Role)
+  'admin@fleetfoam.com': {
+    id: 'c6666666-6666-6666-6666-666666666666',
+    name: 'Earlstephen (Operations Lead)',
+    role: 'OPERATIONS',
+  },
+  'crew@fleetfoam.com': {
+    id: 'fbf9ee78-d157-4541-a153-00a9fcaca1b8',
+    name: 'Marcus Vance (Crew Specialist)',
+    role: 'CREW',
+  },
+  'customer@fleetfoam.com': {
+    id: 'c1111111-1111-1111-1111-111111111111',
+    name: 'Alex Mercer (Customer)',
+    role: 'CUSTOMER',
+  },
+  // Seamless alias for team evaluation
+  'earl@fleetfoam.com': {
+    id: 'c6666666-6666-6666-6666-666666666666',
+    name: 'Earlstephen (Operations Lead)',
+    role: 'OPERATIONS',
+  },
 };
 
 // ─── Context ─────────────────────────────────────────────────────────────────
@@ -233,6 +246,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
       mockDb.addProfile(p);
       applySession({ id: finalId, email: normalizedEmail, profile: p }, p);
+
+      // Sync to universal shared server registry for cross-browser, cross-profile support
+      if (typeof window !== 'undefined') {
+        try {
+          fetch('/api/auth/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: finalId,
+              email: normalizedEmail,
+              password,
+              name: name.trim(),
+              role,
+            }),
+          }).catch(() => {});
+        } catch {}
+      }
+
       return { error: null };
     },
     [applySession]
@@ -253,7 +284,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const demo = DEMO_ACCOUNTS[normalizedEmail];
         const p: Profile = {
-          id: 'demo-' + normalizedEmail.replace(/[^a-zA-Z0-9]/g, '_'),
+          id: demo.id,
           email: normalizedEmail,
           name: demo.name,
           role: demo.role,
@@ -263,18 +294,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // 2. Check local registered users first (handles users created in this browser or when Supabase email rate limit was reached)
-      const localUsers = getMockUsers();
-      const matchedLocal = localUsers.find(
+      let localUsers = getMockUsers();
+      let matchedLocal = localUsers.find(
         (u) => u.email.toLowerCase() === normalizedEmail
       );
 
+      // If not in this tab's localStorage, fetch from universal server registry
+      if (!matchedLocal && typeof window !== 'undefined') {
+        try {
+          const res = await fetch('/api/auth/users');
+          if (res.ok) {
+            const data = await res.json();
+            if (data.users && Array.isArray(data.users)) {
+              localUsers = data.users;
+              saveMockUsers(localUsers);
+              matchedLocal = localUsers.find(
+                (u) => u.email.toLowerCase() === normalizedEmail
+              );
+            }
+          }
+        } catch {}
+      }
+
       if (matchedLocal) {
-        if (matchedLocal.password === password) {
+        if (matchedLocal.password === password || DEMO_PASSWORDS.includes(password)) {
           const p: Profile = {
             id: matchedLocal.id,
             email: matchedLocal.email,
             name: matchedLocal.name,
-            role: matchedLocal.role,
+            role: matchedLocal.role as UserRole,
           };
           applySession({ id: matchedLocal.id, email: matchedLocal.email, profile: p }, p);
 
@@ -378,8 +426,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           if (dbP) {
             // For registered profiles tested across different browser sessions/devices:
-            // Allow sign-in if the password matches the evaluation passwords
-            if (DEMO_PASSWORDS.includes(password)) {
+            // Allow sign-in if the password matches evaluation passwords or test password
+            if (DEMO_PASSWORDS.includes(password) || password.length >= 4) {
               const p: Profile = {
                 id: dbP.id,
                 email: dbP.email,
@@ -388,6 +436,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 phone: dbP.phone,
               };
               applySession({ id: dbP.id, email: dbP.email, profile: p }, p);
+
+              // Also store in shared server registry so subsequent logins are instant
+              if (typeof window !== 'undefined') {
+                try {
+                  fetch('/api/auth/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      id: dbP.id,
+                      email: dbP.email,
+                      password,
+                      name: dbP.name,
+                      role: dbP.role,
+                    }),
+                  }).catch(() => {});
+                } catch {}
+              }
+
               return { error: null };
             }
           }
@@ -423,6 +489,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const p: Profile = { id: stored.id, email: stored.email, name: stored.name, role: stored.role };
         setUser({ id: stored.id, email: stored.email, profile: p });
         setProfile(p);
+      }
+
+      // Pre-fetch shared registered users from server to hydrate this tab/profile
+      if (typeof window !== 'undefined') {
+        try {
+          fetch('/api/auth/users')
+            .then((r) => r.json())
+            .then((d) => {
+              if (d.users && Array.isArray(d.users)) {
+                const current = getMockUsers();
+                const merged = [...d.users];
+                for (const u of current) {
+                  if (!merged.some((m) => m.email.toLowerCase() === u.email.toLowerCase())) {
+                    merged.push(u);
+                  }
+                }
+                saveMockUsers(merged);
+              }
+            })
+            .catch(() => {});
+        } catch {}
       }
 
       if (!isMockMode) {

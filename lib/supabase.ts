@@ -53,30 +53,30 @@ let mockServices: Service[] = [
   },
 ];
 
-// System Administrator & Operations Profiles (Clean Initial State)
+// System Canonical Demonstration Profiles (Exactly 3 Users: 1 per Role)
 let mockProfiles: Profile[] = [
-  {
-    id: 'c4444444-4444-4444-4444-444444444444',
-    email: 'dispatch@fleetfoam.com',
-    name: 'Metro Dispatch Core',
-    role: 'OPERATIONS',
-    phone: '+63 2 8888 3333',
-    status: 'ACTIVE',
-  },
-  {
-    id: 'c5555555-5555-5555-5555-555555555555',
-    email: 'ops@fleetfoam.com',
-    name: 'Sarah Jenkins (Ops Admin)',
-    role: 'OPERATIONS',
-    phone: '+63 917 890 0001',
-    status: 'ACTIVE',
-  },
   {
     id: 'c6666666-6666-6666-6666-666666666666',
     email: 'admin@fleetfoam.com',
-    name: 'System Administrator',
+    name: 'Earlstephen (Operations Lead)',
     role: 'OPERATIONS',
     phone: '+63 917 800 0000',
+    status: 'ACTIVE',
+  },
+  {
+    id: 'fbf9ee78-d157-4541-a153-00a9fcaca1b8',
+    email: 'crew@fleetfoam.com',
+    name: 'Marcus Vance (Crew Specialist)',
+    role: 'CREW',
+    phone: '+63 917 890 0002',
+    status: 'ACTIVE',
+  },
+  {
+    id: 'c1111111-1111-1111-1111-111111111111',
+    email: 'customer@fleetfoam.com',
+    name: 'Alex Mercer (Customer)',
+    role: 'CUSTOMER',
+    phone: '+63 917 890 0003',
     status: 'ACTIVE',
   },
 ];
@@ -88,7 +88,7 @@ let mockJobs: Job[] = [];
 // Helper to sync with localStorage in browser
 const STORAGE_KEY_BOOKINGS = 'fleetfoam_mock_bookings_v4';
 const STORAGE_KEY_JOBS = 'fleetfoam_mock_jobs_v4';
-const STORAGE_KEY_PROFILES = 'fleetfoam_mock_profiles_v3';
+const STORAGE_KEY_PROFILES = 'fleetfoam_mock_profiles_v5';
 const STORAGE_KEY_NOTIFICATIONS = 'fleetfoam_notifications_v2';
 
 let mockNotifications: AppNotification[] = [];
@@ -115,6 +115,8 @@ function loadStoredData() {
       localStorage.removeItem('fleetfoam_mock_bookings_v3');
       localStorage.removeItem('fleetfoam_mock_jobs_v3');
       localStorage.removeItem('fleetfoam_mock_profiles_v2');
+      localStorage.removeItem('fleetfoam_mock_profiles_v3');
+      localStorage.removeItem('fleetfoam_mock_profiles_v4');
       localStorage.removeItem('fleetfoam_notifications_v1');
       // preserved user storage
 
@@ -181,64 +183,19 @@ export const mockDb = {
           .select('*')
           .order('created_at', { ascending: false });
 
-        if (dbProfiles && !error) {
-          // 1. Sync remote Supabase profiles into local mockProfiles
-          dbProfiles.forEach((sbP: Partial<Profile>) => {
-            const existingIdx = mockProfiles.findIndex(
-              (p) => (sbP.id && p.id === sbP.id) || (sbP.email && p.email.toLowerCase() === sbP.email.toLowerCase())
-            );
-            if (existingIdx !== -1) {
-              mockProfiles[existingIdx] = {
-                ...mockProfiles[existingIdx],
-                ...sbP,
-                status: mockProfiles[existingIdx].status || 'ACTIVE',
-              };
-            } else if (sbP.id && sbP.email && sbP.name && sbP.role) {
-              mockProfiles.unshift({
-                id: sbP.id,
-                email: sbP.email,
-                name: sbP.name,
-                role: sbP.role,
-                phone: sbP.phone || '+63 917 555 0100',
-                status: sbP.status || 'ACTIVE',
-              });
-            }
-          });
-
-          // 2. Bidirectional Auto-Push: If any local profile is missing in Supabase, push it up
-          const dbEmailSet = new Set(dbProfiles.map((p) => p.email.toLowerCase()));
-          for (let i = 0; i < mockProfiles.length; i++) {
-            const localP = mockProfiles[i];
-            if (!dbEmailSet.has(localP.email.toLowerCase())) {
-              const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(localP.id);
-              const validId = isUuid ? localP.id : generateUUID();
-              localP.id = validId;
-              try {
-                const { data: pushedRow } = await supabase
-                  .from('profiles')
-                  .upsert(
-                    {
-                      id: validId,
-                      email: localP.email.toLowerCase().trim(),
-                      name: localP.name.trim(),
-                      role: localP.role,
-                    },
-                    { onConflict: 'email' }
-                  )
-                  .select()
-                  .single();
-
-                if (pushedRow) {
-                  localP.id = pushedRow.id;
-                  dbEmailSet.add(localP.email.toLowerCase());
-                }
-              } catch (pushErr) {
-                console.warn('Could not auto-push local profile to Supabase:', pushErr);
-              }
-            }
-          }
-
+        if (dbProfiles && !error && dbProfiles.length > 0) {
+          // Strictly sync remote Supabase profiles into local mockProfiles
+          mockProfiles = dbProfiles.map((sbP: any) => ({
+            id: sbP.id,
+            email: sbP.email,
+            name: sbP.name,
+            role: sbP.role,
+            phone: sbP.phone || '+63 917 555 0100',
+            status: 'ACTIVE',
+          }));
           persistStoredData();
+          notifySubscribers();
+          return [...mockProfiles];
         }
       } catch (err) {
         console.warn('Could not sync mockDb with Supabase:', err);
@@ -484,6 +441,15 @@ export const mockDb = {
 
     persistStoredData();
     notifySubscribers();
+
+    // Broadcast new unassigned job to server store for immediate crew & ops availability
+    if (typeof window !== 'undefined') {
+      fetch('/api/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'SYNC_ALL', jobs: [...mockJobs] }),
+      }).catch(() => {});
+    }
 
     // Async sync with Supabase
     if (!isMockMode) {
@@ -731,19 +697,43 @@ export const mockDb = {
   // ─── CREW CLAIM REQUEST WORKFLOW ──────────────────────────────────────────
   getUnassignedJobs: (): Job[] => {
     loadStoredData();
-    return mockJobs.filter((j) => !j.assigned_to && j.status !== 'CANCELLED');
+    return mockJobs.filter(
+      (j) => !j.assigned_to && j.status !== 'CANCELLED' && j.status !== 'COMPLETED'
+    );
   },
 
-  requestJobClaim: (jobId: string, crewId: string): { success: boolean; error?: string } => {
+  requestJobClaim: (
+    jobId: string,
+    crewId: string,
+    crewEmail?: string,
+    crewName?: string
+  ): { success: boolean; error?: string } => {
     loadStoredData();
     const job = mockJobs.find((j) => j.id === jobId);
     if (!job) return { success: false, error: 'Job not found' };
     if (job.assigned_to) return { success: false, error: 'Job has already been assigned' };
 
-    const crew = mockProfiles.find((p) => p.id === crewId);
-    if (!crew) return { success: false, error: 'Crew profile not found' };
+    const normalizedEmail = crewEmail?.trim().toLowerCase();
+    let crew = mockProfiles.find(
+      (p) =>
+        p.id === crewId ||
+        (normalizedEmail && p.email?.trim().toLowerCase() === normalizedEmail)
+    );
 
-    job.claim_requested_by = crewId;
+    if (!crew) {
+      // Auto-register or fallback to current crew user
+      crew = {
+        id: crewId,
+        email: normalizedEmail || 'crew@fleetfoam.com',
+        name: crewName?.trim() || 'Marcus Vance (Lead Tech)',
+        role: 'CREW',
+        status: 'ACTIVE',
+      };
+      mockProfiles.push(crew);
+      persistStoredData();
+    }
+
+    job.claim_requested_by = crew.id;
     job.claim_requester = crew;
     job.claim_status = 'PENDING';
     job.claim_requested_at = new Date().toISOString();
@@ -766,6 +756,20 @@ export const mockDb = {
 
     persistStoredData();
     notifySubscribers();
+
+    if (typeof window !== 'undefined') {
+      fetch('/api/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'CLAIM_REQUEST',
+          jobId,
+          crewId: crew.id,
+          crewEmail: crew.email,
+          crewName: crew.name,
+        }),
+      }).catch(() => {});
+    }
 
     return { success: true };
   },
@@ -824,6 +828,18 @@ export const mockDb = {
     persistStoredData();
     notifySubscribers();
 
+    if (typeof window !== 'undefined') {
+      fetch('/api/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'CLAIM_ACCEPT',
+          jobId,
+          crewId: crewId,
+        }),
+      }).catch(() => {});
+    }
+
     if (!isMockMode) {
       supabase
         .from('jobs')
@@ -871,6 +887,17 @@ export const mockDb = {
 
     persistStoredData();
     notifySubscribers();
+
+    if (typeof window !== 'undefined') {
+      fetch('/api/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'CLAIM_DENY',
+          jobId,
+        }),
+      }).catch(() => {});
+    }
 
     return { success: true };
   },
@@ -1551,6 +1578,24 @@ export const mockDb = {
     // Also mark or delete associated booking
     mockBookings = mockBookings.filter((b) => b.id !== targetJob.booking_id);
     persistStoredData();
+    notifySubscribers();
+
+    if (typeof window !== 'undefined') {
+      try {
+        fetch('/api/jobs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'DELETE_JOB', jobId, bookingId: targetJob.booking_id }),
+        }).catch(() => {});
+      } catch {}
+    }
+
+    if (!isMockMode) {
+      supabase.from('jobs').delete().eq('id', jobId).then();
+      if (targetJob.booking_id) {
+        supabase.from('bookings').delete().eq('id', targetJob.booking_id).then();
+      }
+    }
     return true;
   },
 
@@ -1559,6 +1604,73 @@ export const mockDb = {
     mockBookings = mockBookings.filter((b) => b.id !== bookingId);
     mockJobs = mockJobs.filter((j) => j.booking_id !== bookingId);
     persistStoredData();
+    notifySubscribers();
+
+    if (typeof window !== 'undefined') {
+      try {
+        fetch('/api/jobs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'DELETE_JOB', bookingId }),
+        }).catch(() => {});
+      } catch {}
+    }
+
+    if (!isMockMode) {
+      supabase.from('bookings').delete().eq('id', bookingId).then();
+      supabase.from('jobs').delete().eq('booking_id', bookingId).then();
+    }
+    return true;
+  },
+
+  // ─── Crew Completed Job History Helpers ─────────────────────────────────
+  getCompletedJobsByCrewId: (crewId: string, role?: string, userName?: string, email?: string): Job[] => {
+    loadStoredData();
+    const normalizedEmail = email?.trim().toLowerCase();
+    const normalizedName = userName?.trim().toLowerCase();
+
+    const hiddenSet = new Set<string>();
+    if (typeof window !== 'undefined') {
+      try {
+        const storedHidden = localStorage.getItem(`fleetfoam_crew_deleted_history_${crewId}`);
+        if (storedHidden) {
+          JSON.parse(storedHidden).forEach((id: string) => hiddenSet.add(id));
+        }
+      } catch {}
+    }
+
+    return mockJobs.filter((j) => {
+      if (j.status !== 'COMPLETED') return false;
+      if (hiddenSet.has(j.id)) return false;
+      if (role === 'OPERATIONS') return true;
+
+      const matchesId = j.assigned_to === crewId || j.assignee?.id === crewId;
+      const matchesEmail = Boolean(
+        normalizedEmail &&
+        j.assignee?.email &&
+        j.assignee.email.toLowerCase() === normalizedEmail
+      );
+      const matchesName = Boolean(
+        normalizedName &&
+        j.assignee?.name &&
+        j.assignee.name.toLowerCase() === normalizedName
+      );
+      return matchesId || matchesEmail || matchesName;
+    });
+  },
+
+  deleteCrewHistoryJob: (jobId: string, crewId: string): boolean => {
+    if (typeof window !== 'undefined') {
+      try {
+        const key = `fleetfoam_crew_deleted_history_${crewId}`;
+        const existing = JSON.parse(localStorage.getItem(key) || '[]');
+        if (!existing.includes(jobId)) {
+          existing.push(jobId);
+          localStorage.setItem(key, JSON.stringify(existing));
+        }
+      } catch {}
+    }
+    notifySubscribers();
     return true;
   },
 
@@ -1634,11 +1746,16 @@ export const mockDb = {
             for (const apiJob of data.jobs) {
               const existingIdx = merged.findIndex((j) => j.id === apiJob.id || j.booking_id === apiJob.booking_id);
               if (existingIdx !== -1) {
+                const local = merged[existingIdx];
                 merged[existingIdx] = {
                   ...apiJob,
-                  status: merged[existingIdx].status || apiJob.status,
-                  assigned_to: apiJob.assigned_to || merged[existingIdx].assigned_to,
-                  assignee: apiJob.assignee || merged[existingIdx].assignee,
+                  status: local.status || apiJob.status,
+                  assigned_to: apiJob.assigned_to || local.assigned_to,
+                  assignee: apiJob.assignee || local.assignee,
+                  claim_status: (apiJob.claim_status && apiJob.claim_status !== 'NONE') ? apiJob.claim_status : (local.claim_status || apiJob.claim_status || 'NONE'),
+                  claim_requested_by: apiJob.claim_requested_by || local.claim_requested_by,
+                  claim_requester: apiJob.claim_requester || local.claim_requester,
+                  claim_requested_at: apiJob.claim_requested_at || local.claim_requested_at,
                 };
               } else {
                 merged.push(apiJob);

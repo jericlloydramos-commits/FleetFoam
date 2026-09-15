@@ -78,23 +78,35 @@ function saveMockSession(user: MockUser | null) {
 // ─── Default Demo Passwords / Accounts ───────────────────────────────────────
 export const DEMO_PASSWORDS = ['password123', 'FleetFoam2026!', 'admin123'];
 
-const DEMO_ACCOUNTS: Record<string, { name: string; role: UserRole }> = {
-  // 👑 The 4 Team Members (Admin / Operations Access)
-  'earlstephensenoran@gmail.com': { name: 'Earlstephen Señoran (Frontend)', role: 'OPERATIONS' },
-  'e@gmail.com':                  { name: 'EARLSTEPHEN SEÑORAN', role: 'CUSTOMER' },
-  'earl@fleetfoam.com':           { name: 'Earlstephen Señoran (Frontend)', role: 'OPERATIONS' },
-  'marriane@fleetfoam.com':       { name: 'Marriane Angel Samson (Project Manager)', role: 'OPERATIONS' },
-  'michael@fleetfoam.com':        { name: 'Michael Sapinoso (Backend/Database)', role: 'OPERATIONS' },
-  'jeric@fleetfoam.com':          { name: 'Jeric Ramos (QA/DevOps Lead)', role: 'OPERATIONS' },
+interface DemoAccount {
+  id: string;
+  name: string;
+  role: UserRole;
+}
 
-  // Role Operations Testing Accounts
-  'ops@fleetfoam.com':            { name: 'Sarah Jenkins (Ops Admin)', role: 'OPERATIONS' },
-  'admin@fleetfoam.com':          { name: 'System Administrator', role: 'OPERATIONS' },
-  'dispatch@fleetfoam.com':       { name: 'Operations Dispatcher', role: 'OPERATIONS' },
-
-  // Detailing Crew & Customer Evaluation Accounts
-  'crew@fleetfoam.com':           { name: 'Marcus Vance (Lead Detailing Tech)', role: 'CREW' },
-  'customer@fleetfoam.com':       { name: 'Brooke Sterling (VIP Fleet Customer)', role: 'CUSTOMER' },
+const DEMO_ACCOUNTS: Record<string, DemoAccount> = {
+  // Canonical 3 Demonstration Users (1 per Role)
+  'admin@fleetfoam.com': {
+    id: 'c6666666-6666-6666-6666-666666666666',
+    name: 'Earlstephen (Operations Lead)',
+    role: 'OPERATIONS',
+  },
+  'crew@fleetfoam.com': {
+    id: 'fbf9ee78-d157-4541-a153-00a9fcaca1b8',
+    name: 'Marcus Vance (Crew Specialist)',
+    role: 'CREW',
+  },
+  'customer@fleetfoam.com': {
+    id: 'c1111111-1111-1111-1111-111111111111',
+    name: 'Alex Mercer (Customer)',
+    role: 'CUSTOMER',
+  },
+  // Seamless alias for team evaluation
+  'earl@fleetfoam.com': {
+    id: 'c6666666-6666-6666-6666-666666666666',
+    name: 'Earlstephen (Operations Lead)',
+    role: 'OPERATIONS',
+  },
 };
 
 // ─── Context ─────────────────────────────────────────────────────────────────
@@ -272,7 +284,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const demo = DEMO_ACCOUNTS[normalizedEmail];
         const p: Profile = {
-          id: 'demo-' + normalizedEmail.replace(/[^a-zA-Z0-9]/g, '_'),
+          id: demo.id,
           email: normalizedEmail,
           name: demo.name,
           role: demo.role,
