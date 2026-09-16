@@ -137,9 +137,9 @@ CREATE POLICY "Allow public access to notifications" ON notifications FOR ALL US
 
 -- 4. Seed Initial Data (Valid UUIDs with hexadecimal characters)
 INSERT INTO services (id, name, description, duration_min, price) VALUES
-  ('11111111-1111-1111-1111-111111111111', 'Express Foam Wash', 'Exterior hand wash, high-pressure foam bath, tire shine, and exterior window polish.', 45, 79.99),
-  ('22222222-2222-2222-2222-222222222222', 'Full Fleet Interior & Exterior', 'Complete exterior foam wash, paint sealant, deep interior vacuum, steam sanitize, and leather conditioning.', 90, 189.99),
-  ('33333333-3333-3333-3333-333333333333', 'Ceramic Shield & Engine Bay Detail', 'Full detail plus hydrophobic ceramic topcoat application and comprehensive engine bay degreasing.', 150, 349.99)
+  ('11111111-1111-1111-1111-111111111111', 'Express Foam Wash', 'Exterior hand wash, high-pressure foam bath, tire shine, and exterior window polish.', 45, 799.00),
+  ('22222222-2222-2222-2222-222222222222', 'Full Fleet Interior & Exterior', 'Complete exterior foam wash, paint sealant, deep interior vacuum, steam sanitize, and leather conditioning.', 90, 1899.00),
+  ('33333333-3333-3333-3333-333333333333', 'Ceramic Shield & Engine Bay Detail', 'Full detail plus hydrophobic ceramic topcoat application and comprehensive engine bay degreasing.', 150, 3499.00)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO profiles (id, email, name, role) VALUES
