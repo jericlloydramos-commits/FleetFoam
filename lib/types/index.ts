@@ -55,6 +55,9 @@ export interface Booking {
   appointment_date: string; // YYYY-MM-DD
   time_slot: string;
   status: JobStatus;
+  customer_phone?: string; // Contact number added per evaluation requirement
+  is_approved?: boolean;    // "Once approved, dili na ma cancel"
+  approved_at?: string;
   notes?: string;
   created_at?: string;
   cancelled_at?: string;  // FR-06: set when customer cancels (AC-05.1)
@@ -79,6 +82,9 @@ export interface Job {
   lng?: number;
   current_location_ph?: string;
   eta_minutes?: number;
+  customer_phone?: string;
+  is_approved?: boolean;
+  approved_at?: string;
   booking?: Booking;
   assignee?: Profile;
   claim_requested_by?: string;
@@ -109,6 +115,7 @@ export interface StatusUpdateResponse {
 
 export type NotificationType =
   | 'BOOKING_CREATED'            // Customer booked -> Notify Admin/Ops
+  | 'BOOKING_APPROVED'           // Admin approved booking -> Notify Customer
   | 'CREW_ASSIGNED'              // Admin assigned crew -> Notify Crew
   | 'CUSTOMER_ACCEPTED'          // Admin assigned crew -> Notify Customer
   | 'SERVICE_AWAITING_APPROVAL'  // Crew completed work -> Notify Customer for inspection
@@ -135,4 +142,20 @@ export interface AppNotification {
   rating?: number;
   created_at: string;
   read: boolean;
+}
+
+export interface SupportTicket {
+  id: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_email: string;
+  subject: string;
+  message: string;
+  priority: 'HIGH' | 'MEDIUM' | 'LOW';
+  status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
+  booking_id?: string;
+  vehicle_plate?: string;
+  resolution_notes?: string;
+  created_at: string;
+  updated_at?: string;
 }
