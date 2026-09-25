@@ -13,6 +13,7 @@ import {
   Truck,
   ShieldAlert,
   Navigation,
+  Headphones,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -113,6 +114,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
             >
               <CalendarClock size={18} className="text-slate-400" />
               <span>Upcoming Bookings</span>
+            </Link>
+
+            {/* Customer Support (Evaluation Item 6: "Customer Support (add sa Admin page)") */}
+            <Link
+              href="/ops?tab=support"
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-xs tracking-tight transition-all ${
+                currentTab === 'support'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+              onClick={() => onSelectTab?.('support')}
+            >
+              <Headphones size={18} className={currentTab === 'support' ? 'text-sky-400' : 'text-slate-400'} />
+              <div className="flex items-center justify-between w-full">
+                <span>Customer Support (CS-01)</span>
+                <span className="text-[9px] font-black uppercase bg-sky-100 text-sky-800 px-1.5 py-0.5 rounded-full">
+                  NEW
+                </span>
+              </div>
             </Link>
           </nav>
         </div>
