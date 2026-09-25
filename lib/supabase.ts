@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Booking, Job, Service, Profile, JobStatus, AppNotification } from './types';
+import { Booking, Job, Service, Profile, JobStatus, AppNotification, SupportTicket } from './types';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://mock-fleetfoam.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'mock-anon-key';
@@ -90,8 +90,51 @@ const STORAGE_KEY_BOOKINGS = 'fleetfoam_mock_bookings_v4';
 const STORAGE_KEY_JOBS = 'fleetfoam_mock_jobs_v4';
 const STORAGE_KEY_PROFILES = 'fleetfoam_mock_profiles_v5';
 const STORAGE_KEY_NOTIFICATIONS = 'fleetfoam_notifications_v2';
+const STORAGE_KEY_TICKETS = 'fleetfoam_support_tickets_v1';
 
 let mockNotifications: AppNotification[] = [];
+
+// Initial Customer Support Tickets (Pre-loaded for presentation & review)
+let mockSupportTickets: SupportTicket[] = [
+  {
+    id: 'tkt-001',
+    customer_name: 'Alex Mercer',
+    customer_phone: '+63 917 890 0003',
+    customer_email: 'customer@fleetfoam.com',
+    subject: 'Gate Access / Security Clearance in BGC',
+    message: 'Guard at One Bonifacio High Street requires vehicle plate number and technician ID 30 mins prior to arrival.',
+    priority: 'HIGH',
+    status: 'OPEN',
+    vehicle_plate: 'NDP 4812',
+    created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
+  },
+  {
+    id: 'tkt-002',
+    customer_name: 'Maria Clarissa Santos',
+    customer_phone: '+63 918 555 2468',
+    customer_email: 'maria.santos@gmail.com',
+    subject: 'Ceramic Shield Hydrophobic Guarantee',
+    message: 'Can the technician bring an extra microfiber drying towel set? We want to purchase the recommended maintenance shampoo.',
+    priority: 'MEDIUM',
+    status: 'IN_PROGRESS',
+    vehicle_plate: 'ABC 1234',
+    created_at: new Date(Date.now() - 3600000 * 5).toISOString(),
+  },
+  {
+    id: 'tkt-003',
+    customer_name: 'Capt. Roberto Gomez',
+    customer_phone: '+63 920 777 9911',
+    customer_email: 'capt.gomez@maritime.ph',
+    subject: 'Underground Parking Height Clearance',
+    message: 'Need to re-verify that the mobile detailing van can clear our 2.2-meter basement parking ramp in Makati CBD.',
+    priority: 'LOW',
+    status: 'RESOLVED',
+    vehicle_plate: 'XYZ 9876',
+    resolution_notes: 'Operations confirmed standard FleetFoam mobile detail transit van has 2.05m clearance, fully compliant with B1 ramp.',
+    created_at: new Date(Date.now() - 3600000 * 20).toISOString(),
+    updated_at: new Date(Date.now() - 3600000 * 10).toISOString(),
+  },
+];
 
 function notifySubscribers() {
   if (typeof window !== 'undefined') {
@@ -148,6 +191,13 @@ function loadStoredData() {
           mockNotifications = parsed;
         }
       }
+      const storedTickets = localStorage.getItem(STORAGE_KEY_TICKETS);
+      if (storedTickets) {
+        const parsed = JSON.parse(storedTickets);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          mockSupportTickets = parsed;
+        }
+      }
     } catch {
       // Ignore localStorage errors
     }
@@ -161,6 +211,7 @@ function persistStoredData() {
       localStorage.setItem(STORAGE_KEY_BOOKINGS, JSON.stringify(mockBookings));
       localStorage.setItem(STORAGE_KEY_JOBS, JSON.stringify(mockJobs));
       localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(mockNotifications));
+      localStorage.setItem(STORAGE_KEY_TICKETS, JSON.stringify(mockSupportTickets));
     } catch {
       // Ignore write errors
     }
@@ -404,6 +455,8 @@ export const mockDb = {
       ...bookingData,
       id: bookingId,
       status: 'SCHEDULED',
+      customer_phone: bookingData.customer_phone || '',
+      is_approved: false,
       created_at: new Date().toISOString(),
       service,
     };
@@ -416,6 +469,8 @@ export const mockDb = {
       assigned_to: undefined,
       claim_status: 'NONE',
       status: 'SCHEDULED',
+      is_approved: false,
+      customer_phone: newBooking.customer_phone,
       updated_at: new Date().toISOString(),
       lat: newBooking.lat || 14.5505,
       lng: newBooking.lng || 121.0494,
@@ -1675,10 +1730,17 @@ export const mockDb = {
   },
 
   // ─── FR-06 / AC-05.1: Cancel Booking (marks BOTH booking AND its job as CANCELLED) ──
+  // CRITICAL REQUIREMENT (Sir Kristian): "Once approved, dapat dili na ma cancel"
   cancelBooking: (bookingId: string): boolean => {
     loadStoredData();
     const bookingIndex = mockBookings.findIndex((b) => b.id === bookingId);
     if (bookingIndex === -1) return false;
+
+    // Guard: Prevent cancellation once approved by Admin/Operations
+    if (mockBookings[bookingIndex].is_approved) {
+      console.warn(`[CANCELLATION LOCKED] Booking ${bookingId} has already been approved by Operations. Cancellation blocked per business rule.`);
+      return false;
+    }
 
     // Mark booking as CANCELLED
     mockBookings[bookingIndex].status = 'CANCELLED';
@@ -1700,6 +1762,105 @@ export const mockDb = {
     }
 
     return true;
+  },
+
+  // ─── ADMIN APPROVAL: "Once approved, dili na ma cancel" ──────────────────
+  approveBooking: (bookingOrJobId: string): { success: boolean; error?: string } => {
+    loadStoredData();
+    const jobIdx = mockJobs.findIndex((j) => j.id === bookingOrJobId || j.booking_id === bookingOrJobId);
+    const bookingIdx = mockBookings.findIndex(
+      (b) => b.id === bookingOrJobId || (jobIdx !== -1 && b.id === mockJobs[jobIdx].booking_id)
+    );
+
+    const now = new Date().toISOString();
+
+    if (bookingIdx !== -1) {
+      mockBookings[bookingIdx] = {
+        ...mockBookings[bookingIdx],
+        is_approved: true,
+        approved_at: now,
+      };
+    }
+
+    if (jobIdx !== -1) {
+      mockJobs[jobIdx] = {
+        ...mockJobs[jobIdx],
+        is_approved: true,
+        approved_at: now,
+        booking: bookingIdx !== -1 ? mockBookings[bookingIdx] : mockJobs[jobIdx].booking,
+      };
+    }
+
+    const targetBooking = bookingIdx !== -1 ? mockBookings[bookingIdx] : (jobIdx !== -1 ? mockJobs[jobIdx].booking : null);
+
+    if (targetBooking) {
+      mockNotifications.unshift({
+        id: generateUUID(),
+        recipient_role: 'CUSTOMER',
+        recipient_user_id: targetBooking.customer_id,
+        recipient_email: targetBooking.customer_email,
+        title: 'Appointment Approved by Operations',
+        message: `Your appointment for ${targetBooking.vehicle_make} ${targetBooking.vehicle_model} [${targetBooking.vehicle_plate}] has been approved. Cancellation is now locked per dispatch policy.`,
+        type: 'BOOKING_APPROVED',
+        booking_id: targetBooking.id,
+        job_id: jobIdx !== -1 ? mockJobs[jobIdx].id : undefined,
+        created_at: now,
+        read: false,
+      });
+    }
+
+    persistStoredData();
+    notifySubscribers();
+
+    if (typeof window !== 'undefined') {
+      fetch('/api/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'SYNC_ALL', jobs: [...mockJobs] }),
+      }).catch(() => {});
+    }
+
+    return { success: true };
+  },
+
+  // ─── CUSTOMER SUPPORT DESK API ──────────────────────────────────────────
+  getSupportTickets: (): SupportTicket[] => {
+    loadStoredData();
+    return [...mockSupportTickets];
+  },
+
+  createSupportTicket: (ticketData: Omit<SupportTicket, 'id' | 'created_at'>): SupportTicket => {
+    loadStoredData();
+    const newTicket: SupportTicket = {
+      ...ticketData,
+      id: 'tkt-' + generateUUID().substring(0, 8),
+      created_at: new Date().toISOString(),
+    };
+    mockSupportTickets.unshift(newTicket);
+    persistStoredData();
+    notifySubscribers();
+    return newTicket;
+  },
+
+  updateSupportTicketStatus: (
+    ticketId: string,
+    status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED',
+    resolutionNotes?: string
+  ): SupportTicket | null => {
+    loadStoredData();
+    const idx = mockSupportTickets.findIndex((t) => t.id === ticketId);
+    if (idx !== -1) {
+      mockSupportTickets[idx] = {
+        ...mockSupportTickets[idx],
+        status,
+        resolution_notes: resolutionNotes !== undefined ? resolutionNotes : mockSupportTickets[idx].resolution_notes,
+        updated_at: new Date().toISOString(),
+      };
+      persistStoredData();
+      notifySubscribers();
+      return mockSupportTickets[idx];
+    }
+    return null;
   },
 
   // ─── FR-03 / AC-02.1: Get jobs for a specific crew member ────────────────
@@ -1772,3 +1933,11 @@ export const mockDb = {
     return [...mockJobs];
   },
 };
+
+// ─── STANDALONE CREATE BOOKING FUNCTION (Evaluation Item 1) ─────────────────
+// Allows direct functional invocation from client UI, testing scripts, or API routes
+export async function createBooking(
+  bookingData: Omit<Booking, 'id' | 'status'> & { customer_phone?: string }
+): Promise<Booking> {
+  return mockDb.addBooking(bookingData);
+}
