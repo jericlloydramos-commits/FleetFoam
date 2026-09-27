@@ -139,9 +139,21 @@ export default function MyAppointmentsPage() {
   }, [loadBookings]);
 
   const handleCancelBooking = async (bookingId: string) => {
-    // FR-06 / AC-05.1: Cancel both the booking AND its associated job
-    // so crew dashboard AND ops dashboard both reflect the cancellation
-    mockDb.cancelBooking(bookingId);
+    // Evaluation Rule (Sir Kristian): "Once approved, dapat dili na ma cancel"
+    const booking = bookings.find((b) => b.id === bookingId);
+    if (booking?.is_approved) {
+      alert('⚠️ Cancellation Locked: This appointment has been confirmed and approved by Operations Dispatch. In accordance with policy, confirmed appointments cannot be cancelled online. Please contact Customer Support for urgent assistance.');
+      setCancelModalOpen(false);
+      return;
+    }
+
+    const success = mockDb.cancelBooking(bookingId);
+    if (!success) {
+      alert('⚠️ Cancellation Locked: This booking has already been approved and cannot be cancelled.');
+      setCancelModalOpen(false);
+      return;
+    }
+
     await loadBookings();
     setCancelModalOpen(false);
     setCancellationSuccess(true);
@@ -558,6 +570,8 @@ export default function MyAppointmentsPage() {
               const isAwaitingApproval = effectiveDetailsStatus === 'AWAITING_APPROVAL';
               const isNeedsRevisit = effectiveDetailsStatus === 'NEEDS_REVISIT';
               const hasAssignee = Boolean(selectedJob?.assignee);
+              // "Once approved, dili na ma cancel" - Sir Kristian
+              const isApprovedByOps = Boolean(selectedBooking.is_approved || selectedJob?.is_approved || hasAssignee);
 
               return (
                 <div className="lg:col-span-2 space-y-6">
@@ -930,13 +944,23 @@ export default function MyAppointmentsPage() {
                     )}
 
                     {!isAwaitingApproval && !isCancelled && !isCompleted && (
-                      <button
-                        type="button"
-                        onClick={() => setCancelModalOpen(true)}
-                        className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-50 hover:bg-rose-50 text-slate-500 hover:text-rose-700 border border-slate-200 hover:border-rose-200 text-xs font-bold flex items-center justify-center gap-2 transition-all min-h-[44px]"
-                      >
-                        <XCircle size={16} /> Cancel Appointment
-                      </button>
+                      isApprovedByOps ? (
+                        <div
+                          className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-100 border border-slate-300 text-slate-600 text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed select-none"
+                          title="Approved by Operations: Once approved, appointments cannot be cancelled per policy."
+                        >
+                          <Lock size={14} className="text-amber-600 shrink-0" />
+                          <span>Approved by Operations &bull; Cancellation Locked</span>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setCancelModalOpen(true)}
+                          className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-50 hover:bg-rose-50 text-slate-500 hover:text-rose-700 border border-slate-200 hover:border-rose-200 text-xs font-bold flex items-center justify-center gap-2 transition-all min-h-[44px] cursor-pointer"
+                        >
+                          <XCircle size={16} /> Cancel Appointment
+                        </button>
+                      )
                     )}
 
                     {(isCompleted || isCancelled) && (

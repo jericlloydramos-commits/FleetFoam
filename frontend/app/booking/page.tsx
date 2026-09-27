@@ -39,10 +39,11 @@ const TIME_SLOTS = [
 export default function BookingPage() {
   const { user, profile } = useAuth();
   const [currentStep, setCurrentStep] = useState<number>(1);
-  const services = mockDb.getServices();
+  const [services, setServices] = useState<Service[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Form State
-  const [selectedService, setSelectedService] = useState<Service | null>(services[0]);
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [vehicleMake, setVehicleMake] = useState('');
   const [vehicleModel, setVehicleModel] = useState('');
   const [vehiclePlate, setVehiclePlate] = useState('');
@@ -53,11 +54,43 @@ export default function BookingPage() {
   const [selectedTimeSlot, setSelectedTimeSlot] = useState('');
   const [customerName, setCustomerName] = useState(profile?.name || '');
   const [customerEmail, setCustomerEmail] = useState(user?.email || '');
+  const [customerPhone, setCustomerPhone] = useState(profile?.phone || '');
   const [notes, setNotes] = useState('');
+
+  // Dynamic Services from Supabase (Per Sir Kristian's Requirement)
+  useEffect(() => {
+    async function loadServicesFromSupabase() {
+      try {
+        // Direktang kukunin sa Supabase database table
+        const { data, error } = await supabase
+          .from('services')
+          .select('*')
+          .order('price', { ascending: true });
+
+        if (data && data.length > 0) {
+          setServices(data);
+          setSelectedService(data[0]);
+        } else {
+          const fallback = mockDb.getServices();
+          setServices(fallback);
+          setSelectedService(fallback[0]);
+        }
+      } catch (err) {
+        const fallback = mockDb.getServices();
+        setServices(fallback);
+        setSelectedService(fallback[0]);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadServicesFromSupabase();
+  }, []);
 
   useEffect(() => {
     if (profile?.name) setCustomerName(profile.name);
     if (user?.email) setCustomerEmail(user.email);
+    if (profile?.phone) setCustomerPhone(profile.phone);
   }, [user, profile]);
 
   // Live GPS Geolocation States (Mindanao & Nationwide)
@@ -195,6 +228,10 @@ export default function BookingPage() {
         setValidationError('Please provide your full name and email address.');
         return;
       }
+      if (!customerPhone.trim()) {
+        setValidationError('Please provide your customer contact number for mobile team updates.');
+        return;
+      }
     }
 
     // Step 6 Submit Booking
@@ -208,6 +245,9 @@ export default function BookingPage() {
 
         const newBooking = mockDb.addBooking({
           customer_id: activeCustomerId,
+          customer_name: customerName,
+          customer_email: customerEmail,
+          customer_phone: customerPhone,
           service_id: selectedService!.id,
           vehicle_make: vehicleMake,
           vehicle_model: vehicleModel,
@@ -215,6 +255,7 @@ export default function BookingPage() {
           service_location: serviceLocation,
           appointment_date: appointmentDate,
           time_slot: selectedTimeSlot,
+          notes: notes,
           lat: detectedLat,
           lng: detectedLng,
           zone_ph: detectedZone,
@@ -405,44 +446,53 @@ export default function BookingPage() {
                 Choose the high-foam eco-wash detailing service for your vehicle.
               </p>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                {services.map((svc) => {
-                  const isSelected = selectedService?.id === svc.id;
-                  return (
-                    <button
-                      key={svc.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedService(svc);
-                        setValidationError(null);
-                      }}
-                      className={`text-left rounded-xl p-5 border transition-all flex flex-col justify-between ${
-                        isSelected
-                          ? 'bg-sky-50/80 border-sky-600 ring-2 ring-sky-500/20 shadow-md'
-                          : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
-                      }`}
-                    >
-                      <div>
-                        <div className="flex justify-between items-start mb-3">
-                          <h3 className="font-bold text-slate-900 text-base">{svc.name}</h3>
-                          {isSelected && <Check className="text-sky-600 flex-shrink-0" size={18} />}
+              {isLoading ? (
+                <div className="py-16 text-center flex flex-col items-center justify-center gap-3">
+                  <Loader2 className="animate-spin text-sky-600" size={32} />
+                  <p className="text-xs font-bold text-slate-500">
+                    Loading detailing packages dynamically from Supabase database...
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  {services.map((svc) => {
+                    const isSelected = selectedService?.id === svc.id;
+                    return (
+                      <button
+                        key={svc.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedService(svc);
+                          setValidationError(null);
+                        }}
+                        className={`text-left rounded-xl p-5 border transition-all flex flex-col justify-between ${
+                          isSelected
+                            ? 'bg-sky-50/80 border-sky-600 ring-2 ring-sky-500/20 shadow-md'
+                            : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex justify-between items-start mb-3">
+                            <h3 className="font-bold text-slate-900 text-base">{svc.name}</h3>
+                            {isSelected && <Check className="text-sky-600 flex-shrink-0" size={18} />}
+                          </div>
+                          <p className="text-slate-600 text-xs leading-relaxed mb-4">
+                            {svc.description}
+                          </p>
                         </div>
-                        <p className="text-slate-600 text-xs leading-relaxed mb-4">
-                          {svc.description}
-                        </p>
-                      </div>
-                      <div className="pt-3 border-t border-slate-200/80 flex justify-between items-center">
-                        <span className="text-xs text-slate-500 flex items-center gap-1">
-                          <Clock size={14} /> {svc.duration_min} mins
-                        </span>
-                        <span className="text-lg font-extrabold text-sky-700">
-                          ₱{svc.price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+                        <div className="pt-3 border-t border-slate-200/80 flex justify-between items-center">
+                          <span className="text-xs text-slate-500 flex items-center gap-1">
+                            <Clock size={14} /> {svc.duration_min} mins
+                          </span>
+                          <span className="text-lg font-extrabold text-sky-700">
+                            ₱{svc.price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -739,6 +789,23 @@ export default function BookingPage() {
                 </div>
 
                 <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                    <span>Contact / Mobile Number <span className="text-rose-500">*</span></span>
+                    <span className="text-[10px] text-sky-700 font-bold">Standard PH Mobile Medium</span>
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder="e.g. +63 917 890 0003 or 09178900003"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-lg bg-white border border-slate-300 text-slate-900 text-sm focus:ring-2 focus:ring-sky-500"
+                  />
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Used by mobile detail technicians and dispatchers for live on-the-way ETA updates.
+                  </p>
+                </div>
+
+                <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                     Special Parking Notes (Optional)
                   </label>
@@ -777,6 +844,13 @@ export default function BookingPage() {
                 </div>
 
                 <div className="space-y-3 text-xs">
+                  <div>
+                    <span className="text-slate-400 block font-bold uppercase">Customer &amp; Contact</span>
+                    <span className="font-bold text-slate-800">
+                      {customerName} &bull; <span className="text-sky-700">{customerPhone}</span>
+                    </span>
+                    <span className="text-slate-500 text-[11px] block">{customerEmail}</span>
+                  </div>
                   <div>
                     <span className="text-slate-400 block font-bold uppercase">Vehicle</span>
                     <span className="font-bold text-slate-800">
@@ -825,6 +899,14 @@ export default function BookingPage() {
                 </div>
 
                 <div className="space-y-2 text-xs text-slate-600">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Customer:</span>
+                    <span className="font-bold text-slate-900">{customerName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Contact Number:</span>
+                    <span className="font-bold text-sky-800">{createdBooking.customer_phone || customerPhone}</span>
+                  </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Service:</span>
                     <span className="font-bold text-slate-900">{selectedService?.name}</span>
