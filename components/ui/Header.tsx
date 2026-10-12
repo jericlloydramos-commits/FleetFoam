@@ -7,6 +7,7 @@ import { Sparkles, Bell, LogOut, LogIn, UserPlus, ChevronDown, CheckCircle2, Use
 import { useAuth } from '@/lib/auth-context';
 import { mockDb, NOTIFICATIONS_CHANGE_EVENT } from '@/lib/supabase';
 import { AppNotification } from '@/lib/types';
+import { ThemeToggle } from './ThemeToggle';
 
 export const Header: React.FC = () => {
   const pathname = usePathname();
@@ -50,48 +51,48 @@ export const Header: React.FC = () => {
     : 'bg-sky-500';
 
   return (
-    <header className="sticky top-0 left-0 right-0 z-50 h-16 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-sm flex items-center justify-between px-4 sm:px-6 transition-all">
+    <header className="sticky top-0 left-0 right-0 z-50 h-16 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center justify-between px-4 sm:px-6 transition-colors duration-200">
       <div className="flex items-center gap-6">
         <Link href="/" className="flex items-center gap-3 group">
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-sky-600 via-sky-500 to-cyan-400 flex items-center justify-center text-white shadow-md shadow-sky-500/25 group-hover:scale-105 transition-all">
             <Sparkles size={20} className="animate-pulse" />
           </div>
           <div className="flex flex-col">
-            <span className="text-[17px] font-black tracking-tight text-slate-900 leading-none group-hover:text-sky-600 transition-colors">
+            <span className="text-[17px] font-black tracking-tight text-slate-900 dark:text-white leading-none group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
               FleetFoam
             </span>
-            <span className="text-[10px] font-extrabold text-sky-700 uppercase tracking-widest mt-1 leading-none">
+            <span className="text-[10px] font-extrabold text-sky-700 dark:text-sky-400 uppercase tracking-widest mt-1 leading-none">
               Detail Coordinator
             </span>
           </div>
         </Link>
 
         {/* Live Dispatch Pill */}
-        <div className="hidden xl:flex items-center gap-2.5 px-3.5 py-1.5 bg-slate-50/90 rounded-full text-xs text-slate-600 border border-slate-200/80 font-medium shadow-sm">
+        <div className="hidden xl:flex items-center gap-2.5 px-3.5 py-1.5 bg-slate-50/90 dark:bg-slate-800/90 rounded-full text-xs text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700 font-medium shadow-sm">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
           </span>
-          <span className="font-extrabold tracking-wider text-[10px] text-slate-900">LIVE DISPATCH</span>
-          <span className="text-slate-300">|</span>
-          <span className="font-semibold text-slate-700">18 Units Active</span>
-          <span className="text-slate-300">•</span>
-          <span className="text-sky-700 font-bold">99.2% On-Time</span>
+          <span className="font-extrabold tracking-wider text-[10px] text-slate-900 dark:text-white">LIVE DISPATCH</span>
+          <span className="text-slate-300 dark:text-slate-600">|</span>
+          <span className="font-semibold text-slate-700 dark:text-slate-200">18 Units Active</span>
+          <span className="text-slate-300 dark:text-slate-600">•</span>
+          <span className="text-sky-700 dark:text-sky-400 font-bold">99.2% On-Time</span>
         </div>
 
         {/* Sprint 1 Defense Ready Badge */}
-        <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-sky-50/90 border border-sky-200/80 rounded-full text-xs font-medium text-sky-800 shadow-sm">
+        <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-sky-50/90 dark:bg-sky-950/60 border border-sky-200/80 dark:border-sky-800 rounded-full text-xs font-medium text-sky-800 dark:text-sky-300 shadow-sm">
           <span className="w-1.5 h-1.5 rounded-full bg-sky-500"></span>
-          <span className="font-bold tracking-wide text-[10px] text-sky-950">SPRINT 1 READY</span>
-          <span className="text-sky-300">|</span>
-          <span className="font-semibold text-sky-700">Group 8</span>
+          <span className="font-bold tracking-wide text-[10px] text-sky-950 dark:text-sky-200">SPRINT 1 READY</span>
+          <span className="text-sky-300 dark:text-sky-700">|</span>
+          <span className="font-semibold text-sky-700 dark:text-sky-400">Group 8</span>
         </div>
       </div>
 
       <div className="flex items-center gap-3">
         {/* Role-Specific Navigation Links — only show what this user is authorized to view */}
         {user && profile && (
-          <div className="hidden sm:flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold">
+          <div className="hidden sm:flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold">
             {profile.role === 'CUSTOMER' && (
               <>
                 <Link
@@ -99,7 +100,7 @@ export const Header: React.FC = () => {
                   className={`px-3 py-1.5 rounded-lg transition-all ${
                     pathname === '/booking'
                       ? 'bg-sky-600 text-white shadow-sm font-bold'
-                      : 'text-slate-600 hover:text-slate-900'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   Book Service
@@ -109,7 +110,7 @@ export const Header: React.FC = () => {
                   className={`px-3 py-1.5 rounded-lg transition-all ${
                     pathname === '/appointments'
                       ? 'bg-sky-600 text-white shadow-sm font-bold'
-                      : 'text-slate-600 hover:text-slate-900'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   My Appointments
@@ -123,7 +124,7 @@ export const Header: React.FC = () => {
                 className={`px-3.5 py-1.5 rounded-lg transition-all ${
                   pathname === '/crew'
                     ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Crew Field Terminal
@@ -135,8 +136,8 @@ export const Header: React.FC = () => {
                 href="/ops"
                 className={`px-3.5 py-1.5 rounded-lg transition-all ${
                   pathname.startsWith('/ops')
-                    ? 'bg-slate-900 text-white font-bold shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-slate-900 dark:bg-sky-600 text-white font-bold shadow-sm'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Ops Command Hub
@@ -144,6 +145,9 @@ export const Header: React.FC = () => {
             )}
           </div>
         )}
+
+        {/* Global Dark Mode Toggle */}
+        <ThemeToggle />
 
         {/* Notifications Bell & Popover — only for logged-in users */}
         {user && (
@@ -155,11 +159,11 @@ export const Header: React.FC = () => {
                 setNotifOpen((prev) => !prev);
                 setDropdownOpen(false);
               }}
-              className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors border border-slate-200"
+              className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"
             >
-              <Bell size={18} className="text-slate-600" />
+              <Bell size={18} />
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white font-extrabold text-[10px] flex items-center justify-center ring-2 ring-white animate-pulse">
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white font-extrabold text-[10px] flex items-center justify-center ring-2 ring-white dark:ring-slate-900 animate-pulse">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
@@ -169,16 +173,16 @@ export const Header: React.FC = () => {
             {notifOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
-                <div className="absolute right-0 top-12 z-50 w-80 sm:w-96 bg-white rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/80 overflow-hidden animate-fadeIn">
+                <div className="absolute right-0 top-12 z-50 w-80 sm:w-96 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl shadow-slate-200/80 dark:shadow-black/50 overflow-hidden animate-fadeIn">
                   {/* Popover Header */}
-                  <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+                  <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/80 dark:bg-slate-800/80">
                     <div className="flex items-center gap-2">
-                      <Bell size={15} className="text-sky-700" />
-                      <span className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                      <Bell size={15} className="text-sky-700 dark:text-sky-400" />
+                      <span className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
                         Notifications
                       </span>
                       {unreadCount > 0 && (
-                        <span className="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-100 text-sky-700 border border-sky-200">
+                        <span className="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
                           {unreadCount} new
                         </span>
                       )}
@@ -187,7 +191,7 @@ export const Header: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => mockDb.markAllNotificationsAsRead(user.id, profile?.role, user.email)}
-                        className="text-[11px] font-bold text-sky-600 hover:text-sky-800 hover:underline"
+                        className="text-[11px] font-bold text-sky-600 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300 hover:underline"
                       >
                         Mark all as read
                       </button>
@@ -195,7 +199,7 @@ export const Header: React.FC = () => {
                   </div>
 
                   {/* Notification List */}
-                  <div className="max-h-[360px] overflow-y-auto divide-y divide-slate-100">
+                  <div className="max-h-[360px] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
                     {notifications.length === 0 ? (
                       <div className="py-8 text-center text-slate-400 space-y-2">
                         <CheckCircle2 size={28} className="mx-auto text-slate-300" />
@@ -278,20 +282,20 @@ export const Header: React.FC = () => {
               type="button"
               id="user-menu-button"
               onClick={() => setDropdownOpen((v) => !v)}
-              className="flex items-center gap-2 pl-2 border-l border-slate-200 hover:opacity-80 transition-opacity"
+              className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-700 hover:opacity-80 transition-opacity"
               aria-haspopup="true"
               aria-expanded={dropdownOpen}
             >
-              <div className={`w-8 h-8 rounded-full ${roleColor} text-white flex items-center justify-center font-bold text-xs ring-2 ring-slate-200 shrink-0`}>
+              <div className={`w-8 h-8 rounded-full ${roleColor} text-white flex items-center justify-center font-bold text-xs ring-2 ring-slate-200 dark:ring-slate-700 shrink-0`}>
                 {initials}
               </div>
               <div className="hidden sm:flex flex-col text-left">
-                <span className="text-xs font-bold text-slate-900 leading-tight max-w-[120px] truncate">
+                <span className="text-xs font-bold text-slate-900 dark:text-white leading-tight max-w-[120px] truncate">
                   {profile?.name ?? user.email}
                 </span>
-                <span className="text-[11px] text-slate-500 font-medium leading-tight">{profile?.role ?? 'User'}</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium leading-tight">{profile?.role ?? 'User'}</span>
               </div>
-              <ChevronDown size={14} className={`text-slate-400 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown size={14} className={`text-slate-400 dark:text-slate-500 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {/* Dropdown */}
@@ -299,10 +303,10 @@ export const Header: React.FC = () => {
               <>
                 {/* Click-away overlay */}
                 <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)} />
-                <div className="absolute right-0 top-12 z-50 w-52 bg-white rounded-xl border border-slate-200 shadow-lg shadow-slate-200/80 py-2 overflow-hidden">
-                  <div className="px-4 py-2.5 border-b border-slate-100">
-                    <p className="text-xs font-extrabold text-slate-900 truncate">{profile?.name ?? 'User'}</p>
-                    <p className="text-[11px] text-slate-500 truncate">{user.email}</p>
+                <div className="absolute right-0 top-12 z-50 w-52 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-lg shadow-slate-200/80 dark:shadow-black/60 py-2 overflow-hidden animate-fadeIn">
+                  <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800">
+                    <p className="text-xs font-extrabold text-slate-900 dark:text-white truncate">{profile?.name ?? 'User'}</p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{user.email}</p>
                     <span className={`inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white ${roleColor}`}>
                       {profile?.role ?? 'USER'}
                     </span>
@@ -311,33 +315,33 @@ export const Header: React.FC = () => {
                     {profile?.role === 'CUSTOMER' && (
                       <>
                         <Link href="/booking" onClick={() => setDropdownOpen(false)}
-                          className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-sky-50 hover:text-sky-700 transition-colors">
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-slate-800 hover:text-sky-700 dark:hover:text-sky-300 transition-colors">
                           Book a Service
                         </Link>
                         <Link href="/appointments" onClick={() => setDropdownOpen(false)}
-                          className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-sky-50 hover:text-sky-700 transition-colors">
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-slate-800 hover:text-sky-700 dark:hover:text-sky-300 transition-colors">
                           My Appointments
                         </Link>
                       </>
                     )}
                     {profile?.role === 'CREW' && (
                       <Link href="/crew" onClick={() => setDropdownOpen(false)}
-                        className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-amber-50 hover:text-amber-700 transition-colors">
+                        className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-amber-500/10 dark:hover:bg-amber-500/20 hover:text-amber-700 dark:hover:text-amber-400 transition-colors">
                         My Jobs
                       </Link>
                     )}
                     {profile?.role === 'OPERATIONS' && (
                       <Link href="/ops" onClick={() => setDropdownOpen(false)}
-                        className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors">
+                        className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors">
                         Control Room
                       </Link>
                     )}
                   </div>
-                  <div className="border-t border-slate-100 pt-1">
+                  <div className="border-t border-slate-100 dark:border-slate-800 pt-1">
                     <button
                       type="button"
                       onClick={handleSignOut}
-                      className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors"
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
                     >
                       <LogOut size={14} /> Sign Out
                     </button>
@@ -351,7 +355,7 @@ export const Header: React.FC = () => {
           <div className="flex items-center gap-2">
             <Link
               href="/auth/login"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 border border-slate-200 transition-all"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-all"
             >
               <LogIn size={14} /> Sign In
             </Link>
