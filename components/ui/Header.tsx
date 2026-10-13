@@ -79,10 +79,10 @@ export const Header: React.FC = () => {
           <span className="text-sky-700 font-bold">99.2% On-Time</span>
         </div>
 
-        {/* Sprint 1 Defense Ready Badge */}
+        {/* Midterm Progress Ready Badge */}
         <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-sky-50/90 border border-sky-200/80 rounded-full text-xs font-medium text-sky-800 shadow-sm">
-          <span className="w-1.5 h-1.5 rounded-full bg-sky-500"></span>
-          <span className="font-bold tracking-wide text-[10px] text-sky-950">SPRINT 1 READY</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span className="font-bold tracking-wide text-[10px] text-sky-950">MIDTERM PROGRESS READY</span>
           <span className="text-sky-300">|</span>
           <span className="font-semibold text-sky-700">Group 8</span>
         </div>
