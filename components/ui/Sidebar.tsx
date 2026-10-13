@@ -15,7 +15,6 @@ import {
   Navigation,
   Headphones,
 } from 'lucide-react';
-import { ThemeToggle } from './ThemeToggle';
 
 interface SidebarProps {
   currentTab?: string;
@@ -26,7 +25,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
   const pathname = usePathname();
 
   return (
-    <aside className="hidden lg:flex fixed left-0 top-16 bottom-0 w-64 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 z-40 flex-col justify-between py-4 select-none transition-colors duration-200">
+    <aside className="hidden lg:flex fixed left-0 top-16 bottom-0 w-64 bg-white border-r border-slate-200/80 z-40 flex-col justify-between py-4 select-none">
       <div className="flex-1 overflow-y-auto px-3 space-y-4">
         {/* Operations Core */}
         <div className="space-y-1">
@@ -217,22 +216,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
         </div>
       </div>
 
-      {/* Bottom Telemetry Card & Dark Mode Switcher */}
-      <div className="px-4 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
-        {/* Quick Theme Switcher */}
-        <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/60">
-          <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">Appearance</span>
-          <ThemeToggle />
-        </div>
-
-        <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60 flex flex-col gap-1.5">
+      {/* Bottom Telemetry Card */}
+      <div className="px-4 pt-3 border-t border-slate-100">
+        <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/70 flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-extrabold text-slate-800 dark:text-white">Dispatch Core</span>
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black bg-slate-900 dark:bg-sky-600 text-white">
+            <span className="text-[11px] font-extrabold text-slate-800">Dispatch Core</span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black bg-slate-900 text-white">
               v2.4
             </span>
           </div>
-          <span className="text-[10px] text-slate-400 dark:text-slate-400 font-medium">Fleet telemetry sync: Live</span>
+          <span className="text-[10px] text-slate-400 font-medium">Fleet telemetry sync: Live</span>
         </div>
       </div>
     </aside>
