@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/ui/Header';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { Job, JobStatus, Profile } from '@/lib/types';
+import { Job, JobStatus, Profile, SupportTicket } from '@/lib/types';
 import { mockDb, NOTIFICATIONS_CHANGE_EVENT } from '@/lib/supabase';
 import { Sidebar } from '@/components/ui/Sidebar';
 import { RoleGuard } from '@/components/auth/RoleGuard';
@@ -41,11 +41,29 @@ import {
   X,
   CalendarDays,
   RotateCcw,
+  Headphones,
+  Lock,
+  MessageSquare,
+  Send,
+  CheckCheck,
 } from 'lucide-react';
 
 export default function OperationsDashboardPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
+  const [ticketFilter, setTicketFilter] = useState<'ALL' | 'OPEN' | 'IN_PROGRESS' | 'RESOLVED'>('ALL');
+  const [showNewTicketModal, setShowNewTicketModal] = useState(false);
+  const [newTicketForm, setNewTicketForm] = useState({
+    customer_name: '',
+    customer_phone: '',
+    customer_email: '',
+    subject: '',
+    message: '',
+    priority: 'MEDIUM' as 'HIGH' | 'MEDIUM' | 'LOW',
+    vehicle_plate: '',
+  });
+
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [selectedZone, setSelectedZone] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -55,6 +73,9 @@ export default function OperationsDashboardPage() {
   const [viewMode, setViewMode] = useState<'SPLIT' | 'MAP' | 'MATRIX'>('SPLIT');
   const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
   const [assignmentToast, setAssignmentToast] = useState<string | null>(null);
+
+  // 15-Second Map Auto-Refresh Interval (Per Sir Kristian's Requirement)
+  const [refreshCountdown, setRefreshCountdown] = useState<number>(15);
 
   // Revisit & Reschedule State
   const [rescheduleJob, setRescheduleJob] = useState<Job | null>(null);
@@ -81,10 +102,28 @@ export default function OperationsDashboardPage() {
       }
     } catch {}
 
+    // Check URL tab parameter on initial load
+    if (typeof window !== 'undefined') {
+      const tabParam = new URLSearchParams(window.location.search).get('tab');
+      if (tabParam) setActiveTab(tabParam);
+    }
+
+    // 15-Second Map & Dispatch Auto-Refresh Interval
+    const timer = setInterval(() => {
+      setRefreshCountdown((prev) => {
+        if (prev <= 1) {
+          loadData();
+          return 15;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
     return () => {
       window.removeEventListener(NOTIFICATIONS_CHANGE_EVENT, handleUpdate);
       window.removeEventListener('storage', handleUpdate);
       if (bc) bc.close();
+      clearInterval(timer);
     };
   }, []);
 
@@ -108,6 +147,58 @@ export default function OperationsDashboardPage() {
     }
     setJobs(mockDb.getJobs());
     setProfiles(mockDb.getProfiles());
+    setSupportTickets(mockDb.getSupportTickets());
+  };
+
+  const handleApproveBooking = (bookingOrJobId: string) => {
+    const res = mockDb.approveBooking(bookingOrJobId);
+    if (res.success) {
+      loadData();
+      setAssignmentToast('✅ Appointment Approved! Customer online cancellation locked per policy.');
+      setTimeout(() => setAssignmentToast(null), 6000);
+    }
+  };
+
+  const handleUpdateTicketStatus = (
+    ticketId: string,
+    status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED',
+    notes?: string
+  ) => {
+    mockDb.updateSupportTicketStatus(ticketId, status, notes);
+    setSupportTickets(mockDb.getSupportTickets());
+    setAssignmentToast(`Support Ticket #${ticketId} status updated to ${status}.`);
+    setTimeout(() => setAssignmentToast(null), 5000);
+  };
+
+  const handleCreateSupportTicket = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTicketForm.customer_name || !newTicketForm.customer_phone || !newTicketForm.subject) {
+      alert('Please fill out customer name, contact phone number, and subject.');
+      return;
+    }
+    mockDb.createSupportTicket({
+      customer_name: newTicketForm.customer_name,
+      customer_phone: newTicketForm.customer_phone,
+      customer_email: newTicketForm.customer_email || 'customer@fleetfoam.com',
+      subject: newTicketForm.subject,
+      message: newTicketForm.message,
+      priority: newTicketForm.priority,
+      status: 'OPEN',
+      vehicle_plate: newTicketForm.vehicle_plate || undefined,
+    });
+    setSupportTickets(mockDb.getSupportTickets());
+    setShowNewTicketModal(false);
+    setNewTicketForm({
+      customer_name: '',
+      customer_phone: '',
+      customer_email: '',
+      subject: '',
+      message: '',
+      priority: 'MEDIUM',
+      vehicle_plate: '',
+    });
+    setAssignmentToast('🎧 New Customer Support Ticket logged successfully.');
+    setTimeout(() => setAssignmentToast(null), 5000);
   };
 
   const handleRefresh = async () => {
@@ -327,6 +418,26 @@ export default function OperationsDashboardPage() {
                   <span>Team &amp; Roster (AUTH-04)</span>
                 </button>
 
+                {/* Customer Support Desk Quick Toggle (Evaluation Item 6) */}
+                <button
+                  type="button"
+                  onClick={() => setActiveTab(activeTab === 'support' ? 'dashboard' : 'support')}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer ${
+                    activeTab === 'support'
+                      ? 'bg-sky-600 text-white ring-2 ring-sky-300'
+                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                  }`}
+                  title="Open Customer Support Management Center"
+                >
+                  <Headphones size={15} className={activeTab === 'support' ? 'text-white' : 'text-sky-600'} />
+                  <span>Support Desk</span>
+                  {supportTickets.filter((t) => t.status === 'OPEN').length > 0 && (
+                    <span className="text-[10px] font-black bg-rose-500 text-white px-1.5 py-0.5 rounded-full">
+                      {supportTickets.filter((t) => t.status === 'OPEN').length}
+                    </span>
+                  )}
+                </button>
+
                 {/* View Mode Switcher */}
                 <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-bold border border-slate-200">
                   <button
@@ -493,17 +604,218 @@ export default function OperationsDashboardPage() {
               </div>
             </section>
 
-            {/* LIVE PHILIPPINES DISPATCH MAP (Shown in SPLIT or MAP mode) */}
-            {(viewMode === 'SPLIT' || viewMode === 'MAP') && (
+            {activeTab === 'support' ? (
+              <section className="space-y-4 animate-fadeIn">
+                {/* Support Desk Header & Controls */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="p-2 rounded-xl bg-sky-50 text-sky-600">
+                        <Headphones size={20} />
+                      </span>
+                      <div>
+                        <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                          Customer Support &amp; Dispatch Resolution Center (CS-01)
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800">
+                            Live Queue
+                          </span>
+                        </h2>
+                        <p className="text-xs text-slate-500 font-medium">
+                          Real-time customer inquiries, rescheduling requests, phone inbound logs, and complaint resolution
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Status Filters */}
+                    <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-bold border border-slate-200">
+                      {(['ALL', 'OPEN', 'IN_PROGRESS', 'RESOLVED'] as const).map((status) => (
+                        <button
+                          key={status}
+                          type="button"
+                          onClick={() => setTicketFilter(status)}
+                          className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                            ticketFilter === status
+                              ? 'bg-white text-slate-900 shadow-xs'
+                              : 'text-slate-500 hover:text-slate-800'
+                          }`}
+                        >
+                          {status === 'ALL'
+                            ? `All (${supportTickets.length})`
+                            : status === 'OPEN'
+                            ? `Open (${supportTickets.filter((t) => t.status === 'OPEN').length})`
+                            : status === 'IN_PROGRESS'
+                            ? `In Progress (${supportTickets.filter((t) => t.status === 'IN_PROGRESS').length})`
+                            : `Resolved (${supportTickets.filter((t) => t.status === 'RESOLVED').length})`}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Log Inbound Call Button */}
+                    <button
+                      type="button"
+                      onClick={() => setShowNewTicketModal(true)}
+                      className="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                    >
+                      <PhoneCall size={14} />
+                      <span>+ Log Support Call</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Ticket List */}
+                <div className="grid grid-cols-1 gap-3">
+                  {supportTickets
+                    .filter((ticket) => ticketFilter === 'ALL' || ticket.status === ticketFilter)
+                    .map((ticket) => (
+                      <div
+                        key={ticket.id}
+                        className="stitch-card p-5 bg-white border border-slate-200/90 rounded-2xl shadow-xs hover:border-slate-300 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
+                      >
+                        <div className="space-y-2 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono text-xs font-bold text-slate-400">
+                              #{ticket.id}
+                            </span>
+                            <span
+                              className={`text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider ${
+                                ticket.status === 'OPEN'
+                                  ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                                  : ticket.status === 'IN_PROGRESS'
+                                  ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                  : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                              }`}
+                            >
+                              {ticket.status.replace('_', ' ')}
+                            </span>
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                                ticket.priority === 'HIGH'
+                                  ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                  : ticket.priority === 'MEDIUM'
+                                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                  : 'bg-slate-50 text-slate-700 border border-slate-200'
+                              }`}
+                            >
+                              Priority: {ticket.priority}
+                            </span>
+                            {ticket.vehicle_plate && (
+                              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                                Plate: {ticket.vehicle_plate}
+                              </span>
+                            )}
+                            <span className="text-[11px] text-slate-400 font-medium">
+                              {new Date(ticket.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {new Date(ticket.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+
+                          <div>
+                            <h4 className="text-sm font-bold text-slate-900">{ticket.subject}</h4>
+                            <p className="text-xs text-slate-600 mt-1 leading-relaxed">{ticket.message}</p>
+                          </div>
+
+                          <div className="flex items-center gap-4 text-xs font-medium text-slate-500 pt-1 flex-wrap">
+                            <span>Customer: <strong className="text-slate-800">{ticket.customer_name}</strong></span>
+                            <a
+                              href={`tel:${ticket.customer_phone}`}
+                              className="inline-flex items-center gap-1 font-bold text-sky-700 hover:text-sky-800 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200"
+                            >
+                              <PhoneCall size={12} />
+                              {ticket.customer_phone}
+                            </a>
+                            {ticket.customer_email && (
+                              <span className="hidden sm:inline text-slate-400">{ticket.customer_email}</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Quick Actions */}
+                        <div className="flex sm:flex-col items-center sm:items-end justify-end gap-2 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {ticket.status !== 'IN_PROGRESS' && ticket.status !== 'RESOLVED' && (
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateTicketStatus(ticket.id, 'IN_PROGRESS')}
+                                className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-2xs transition-all cursor-pointer"
+                              >
+                                Start Working
+                              </button>
+                            )}
+                            {ticket.status !== 'RESOLVED' && (
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateTicketStatus(ticket.id, 'RESOLVED')}
+                                className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-2xs transition-all cursor-pointer flex items-center gap-1"
+                              >
+                                <CheckCheck size={14} />
+                                Resolve Ticket
+                              </button>
+                            )}
+                            {ticket.status === 'RESOLVED' && (
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateTicketStatus(ticket.id, 'OPEN')}
+                                className="px-3 py-1.5 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all cursor-pointer"
+                              >
+                                Reopen
+                              </button>
+                            )}
+                            <a
+                              href={`tel:${ticket.customer_phone}`}
+                              className="px-3 py-1.5 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-300 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                            >
+                              <PhoneCall size={13} />
+                              Direct Call
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                  {supportTickets.filter((ticket) => ticketFilter === 'ALL' || ticket.status === ticketFilter).length === 0 && (
+                    <div className="p-12 text-center bg-white rounded-2xl border border-dashed border-slate-300">
+                      <Headphones className="mx-auto text-slate-300 mb-2" size={36} />
+                      <h4 className="text-sm font-bold text-slate-700">No support tickets found</h4>
+                      <p className="text-xs text-slate-500 mt-1">
+                        There are no customer inquiries matching the selected filter.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </section>
+            ) : (
+              <>
+                {/* LIVE PHILIPPINES DISPATCH MAP (Shown in SPLIT or MAP mode) */}
+                {(viewMode === 'SPLIT' || viewMode === 'MAP') && (
               <section className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                    <Navigation className="text-emerald-600" size={18} />
-                    Live Philippines Fleet Map (Metro Manila)
-                  </h2>
-                  <span className="text-xs text-slate-500 font-medium">
-                    Tracking {filteredJobs.length} active vehicle detail locations
-                  </span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                      <Navigation className="text-emerald-600" size={18} />
+                      Live Philippines Fleet Map (Metro Manila)
+                    </h2>
+                    <span className="text-xs text-slate-500 font-medium">
+                      Tracking {filteredJobs.length} active vehicle detail locations
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 flex items-center gap-1.5 shadow-2xs">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                      Map Sync: {refreshCountdown}s (15s Interval)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleRefresh();
+                        setRefreshCountdown(15);
+                      }}
+                      className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+                      title="Force refresh telemetry now"
+                    >
+                      <RefreshCw size={14} className={isRefreshing ? 'animate-spin text-sky-600' : ''} />
+                    </button>
+                  </div>
                 </div>
 
                 <PhilippinesDispatchMap
@@ -772,13 +1084,28 @@ export default function OperationsDashboardPage() {
                               <h3 className="text-lg font-extrabold text-slate-900 mt-1">
                                 {job.booking?.vehicle_make} {job.booking?.vehicle_model}
                               </h3>
-                              <div className="flex items-center gap-2 mt-1">
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
                                 <span className="text-xs font-mono font-bold px-2 py-0.5 bg-slate-900 text-white rounded inline-block">
                                   PLATE: {job.booking?.vehicle_plate}
                                 </span>
                                 <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                                   ₱{job.booking?.service?.price?.toLocaleString() || '1,899'} PHP
                                 </span>
+                                {(job.customer_phone || job.booking?.customer_phone) && (
+                                  <a
+                                    href={`tel:${job.customer_phone || job.booking?.customer_phone}`}
+                                    className="text-xs font-bold text-sky-800 bg-sky-50 hover:bg-sky-100 px-2 py-0.5 rounded border border-sky-200 flex items-center gap-1 transition-colors"
+                                    title="Customer Contact Number - Click to Call"
+                                  >
+                                    <PhoneCall size={12} className="text-sky-600" />
+                                    <span>{job.customer_phone || job.booking?.customer_phone}</span>
+                                  </a>
+                                )}
+                                {(job.is_approved || job.booking?.is_approved) && job.status !== 'CANCELLED' && (
+                                  <span className="text-[10px] font-black uppercase text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded flex items-center gap-1 shadow-2xs">
+                                    <Lock size={10} className="text-emerald-700" /> Approved &bull; Locked
+                                  </span>
+                                )}
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
@@ -1000,8 +1327,21 @@ export default function OperationsDashboardPage() {
                               )}
                             </div>
 
-                            {/* Right Side: Compact Status Override & Delete Button */}
+                            {/* Right Side: Compact Status Override, Approval & Delete Button */}
                             <div className="flex items-center gap-1.5 shrink-0">
+                              {/* Approve Booking Button ("Once approved, dili na ma cancel") */}
+                              {!job.is_approved && !job.booking?.is_approved && job.status !== 'CANCELLED' && job.status !== 'COMPLETED' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleApproveBooking(job.id)}
+                                  className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] uppercase tracking-wider rounded-xl shadow-xs flex items-center gap-1 transition-all cursor-pointer hover:scale-105 active:scale-95 shrink-0"
+                                  title="Approve booking (locks customer cancellation)"
+                                >
+                                  <ShieldCheck size={13} />
+                                  <span>Approve</span>
+                                </button>
+                              )}
+
                               {/* Status Override Pill */}
                               <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 shadow-2xs">
                                 <span className="text-[10px] text-slate-400 font-black uppercase tracking-wider">Status:</span>
@@ -1044,6 +1384,8 @@ export default function OperationsDashboardPage() {
                   </div>
                 )}
               </section>
+            )}
+              </>
             )}
           </main>
         </div>
@@ -1189,6 +1531,130 @@ export default function OperationsDashboardPage() {
                   >
                     <Calendar size={14} />
                     {rescheduleSubmitting ? 'Rescheduling...' : 'Confirm & Dispatch Follow-up'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Log Inbound Support Call / Ticket Modal */}
+        {showNewTicketModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+            <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-scaleUp">
+              <div className="p-5 bg-gradient-to-r from-sky-600 to-sky-700 text-white flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+                    <Headphones size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black tracking-tight">Log Inbound Support Call / Ticket</h3>
+                    <p className="text-xs text-sky-100 font-medium">Customer Support Desk (CS-01)</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowNewTicketModal(false)}
+                  className="p-1.5 rounded-xl hover:bg-white/20 transition-all text-white cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateSupportTicket} className="p-6 space-y-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Customer Full Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Atty. Miguel Santos"
+                      value={newTicketForm.customer_name}
+                      onChange={(e) => setNewTicketForm({ ...newTicketForm, customer_name: e.target.value })}
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-sky-500 text-slate-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Customer Phone Number *</label>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="e.g. +63 917 555 0192"
+                      value={newTicketForm.customer_phone}
+                      onChange={(e) => setNewTicketForm({ ...newTicketForm, customer_phone: e.target.value })}
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-sky-500 text-slate-800"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Priority Level</label>
+                    <select
+                      value={newTicketForm.priority}
+                      onChange={(e) =>
+                        setNewTicketForm({
+                          ...newTicketForm,
+                          priority: e.target.value as 'HIGH' | 'MEDIUM' | 'LOW',
+                        })
+                      }
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-sky-500 text-slate-800"
+                    >
+                      <option value="HIGH">High (Urgent / Active Job Delay)</option>
+                      <option value="MEDIUM">Medium (Rescheduling / Inquiry)</option>
+                      <option value="LOW">Low (General Feedback / Quotation)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Vehicle Plate (Optional)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. NBD-8821"
+                      value={newTicketForm.vehicle_plate}
+                      onChange={(e) => setNewTicketForm({ ...newTicketForm, vehicle_plate: e.target.value })}
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-sky-500 text-slate-800 uppercase"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Ticket Subject *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Request to change arrival time / Location gate access instructions"
+                    value={newTicketForm.subject}
+                    onChange={(e) => setNewTicketForm({ ...newTicketForm, subject: e.target.value })}
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-sky-500 text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Details &amp; Customer Notes *</label>
+                  <textarea
+                    rows={3}
+                    required
+                    placeholder="Document conversation details, customer requests, or crew instructions..."
+                    value={newTicketForm.message}
+                    onChange={(e) => setNewTicketForm({ ...newTicketForm, message: e.target.value })}
+                    className="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs font-medium focus:ring-2 focus:ring-sky-500 text-slate-800 resize-none"
+                  />
+                </div>
+
+                <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowNewTicketModal(false)}
+                    className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 font-bold transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-black uppercase tracking-wider transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+                  >
+                    <Send size={14} />
+                    Log Ticket to Queue
                   </button>
                 </div>
               </form>

@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       customer_id,
+      customer_phone,
       service_id,
       vehicle_make,
       vehicle_model,
@@ -97,33 +98,48 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Insert into Supabase and/or mockDb
-    const bookingId = generateUUID();
-    const newBooking = {
-      id: bookingId,
-      customer_id: customer_id || 'c1111111-1111-1111-1111-111111111111',
-      service_id,
-      vehicle_make: vehicle_make || 'Toyota',
-      vehicle_model: vehicle_model || 'Fortuner',
-      vehicle_plate: vehicle_plate || 'NBC 1234',
-      service_location,
-      appointment_date,
-      time_slot,
-      status,
-      created_at: new Date().toISOString(),
-    };
+    let createdBooking: any = null;
 
     if (!isMockMode) {
       try {
-        const { data, error } = await supabase.from('bookings').insert(newBooking).select().single();
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(customer_id || '');
+        const validCustomerId = isUuid ? customer_id : 'c1111111-1111-1111-1111-111111111111';
+
+        const { data, error } = await supabase.from('bookings').insert({
+          customer_id: validCustomerId,
+          service_id,
+          vehicle_make: vehicle_make || 'Toyota',
+          vehicle_model: vehicle_model || 'Fortuner',
+          vehicle_plate: vehicle_plate || 'NBC 1234',
+          service_location,
+          customer_phone: customer_phone || null,
+          appointment_date,
+          time_slot,
+          status,
+        }).select().single();
+
         if (!error && data) {
-          return NextResponse.json({ success: true, booking: data }, { status: 201 });
+          createdBooking = data;
         }
       } catch (err) {
         console.warn('Supabase insert failed, using memory fallback:', err);
       }
     }
 
-    return NextResponse.json({ success: true, booking: newBooking }, { status: 201 });
+    // Always register with mockDb memory & disk cache for double-booking checks
+    const localSaved = mockDb.addBooking({
+      customer_id: customer_id || 'c1111111-1111-1111-1111-111111111111',
+      service_id,
+      vehicle_make: vehicle_make || 'Toyota',
+      vehicle_model: vehicle_model || 'Fortuner',
+      vehicle_plate: vehicle_plate || 'NBC 1234',
+      service_location,
+      customer_phone: customer_phone || '',
+      appointment_date,
+      time_slot,
+    });
+
+    return NextResponse.json({ success: true, booking: createdBooking || localSaved }, { status: 201 });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Invalid JSON payload';
     return NextResponse.json({ error: message }, { status: 400 });
@@ -147,9 +163,12 @@ export async function DELETE(request: NextRequest) {
     if (!isMockMode) {
       const { error } = await supabase.from('bookings').delete().eq('id', id);
       if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        console.warn('Supabase delete warning:', error.message);
       }
     }
+
+    // Also cancel from mockDb and disk store
+    mockDb.cancelBooking(id);
 
     return NextResponse.json(
       { success: true, message: `Booking ${id} successfully deleted.` },

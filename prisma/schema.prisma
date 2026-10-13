@@ -1,0 +1,286 @@
+// CS 490 Senior Capstone - Agency Backend & Database Lead Audit
+// FleetFoam Detail Coordinator Database Schema (Normalized to 3NF)
+// Lead: Michael Sapinoso (Backend & Database Lead)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum UserRole {
+  CUSTOMER
+  CREW
+  OPERATIONS
+  ADMIN
+}
+
+enum BookingStatus {
+  PENDING
+  APPROVED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum JobStage {
+  EN_ROUTE
+  INSPECTION
+  WASHING
+  DETAILING
+  FINAL_QC
+  DELIVERED
+}
+
+enum CrewAvailabilityStatus {
+  AVAILABLE
+  ON_DUTY
+  ON_LEAVE
+  OFFLINE
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+// ==========================================
+// MODELS (NORMALIZED TO 3NF)
+// ==========================================
+
+/// Core user authentication and role mapping
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  fullName     String
+  role         UserRole  @default(CUSTOMER)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // 1:1 Relations
+  customerProfile CustomerProfile?
+  crewProfile     CrewProfile?
+
+  // 1:N Relations
+  createdBookings Booking[]       @relation("CustomerBookings")
+  assignedTickets SupportTicket[] @relation("AgentTickets")
+  notifications   Notification[]
+  auditLogs       AuditLog[]      @relation("PerformedActions")
+
+  @@index([role])
+}
+
+/// Customer-specific attributes (1:1 with User)
+model CustomerProfile {
+  id             String    @id @default(uuid())
+  userId         String    @unique
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone          String    @unique
+  defaultAddress String?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([phone])
+}
+
+/// Field crew detailing profile (1:1 with User)
+model CrewProfile {
+  id               String                 @id @default(uuid())
+  userId           String                 @unique
+  user             User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone            String
+  status           CrewAvailabilityStatus @default(AVAILABLE)
+  vehicleType      String?
+  currentLatitude  Float?
+  currentLongitude Float?
+  lastLocationSync DateTime?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  // 1:N Relations to Join Table
+  jobAssignments JobCrewAssignment[]
+
+  @@index([status])
+}
+
+/// Catalog of detailing services & pricing packages (Lookup Table)
+model Service {
+  id              String           @id @default(uuid())
+  name            String
+  slug            String           @unique
+  description     String
+  price           Decimal          @db.Decimal(10, 2)
+  durationMinutes Int
+  isAvailable     Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  // M:N Relation via Explicit Join Model
+  bookingServices BookingService[]
+
+  @@index([isAvailable])
+}
+
+/// Core appointment records
+model Booking {
+  id             String        @id @default(uuid())
+  customerId     String
+  customer       User          @relation("CustomerBookings", fields: [customerId], references: [id], onDelete: Restrict)
+  customerPhone  String
+  scheduledAt    DateTime
+  status         BookingStatus @default(PENDING)
+  serviceAddress String
+  vehicleDetails String
+  notes          String?
+  
+  // Post-Evaluation Checklist: Operations Policy Approval Lock
+  isApproved     Boolean       @default(false)
+  approvedAt     DateTime?
+  approvedBy     String?
+  
+  totalAmount    Decimal       @db.Decimal(10, 2)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  // Relations
+  services       BookingService[]
+  job            Job?
+  supportTickets SupportTicket[]
+
+  // Strategic B-Tree Indexes & Left-Prefix Rule:
+  // - [customerId] for customer dashboard queries
+  // - [status, scheduledAt] compound index: status is queried first, then filtered/sorted by scheduled date
+  // - [isApproved, status] for operations approval queue
+  @@index([customerId])
+  @@index([status, scheduledAt])
+  @@index([isApproved, status])
+}
+
+/// Explicit Join Model: Booking <-> Service (M:N with metadata)
+/// Preserves historical snapshot price and quantity at time of booking
+model BookingService {
+  id        String   @id @default(uuid())
+  bookingId String
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  serviceId String
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  quantity  Int      @default(1)
+  unitPrice Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+
+  // Constraints & Foreign Key Indexes
+  @@unique([bookingId, serviceId])
+  @@index([bookingId])
+  @@index([serviceId])
+}
+
+/// Operations dispatch and stage lifecycle execution (1:1 with Booking)
+model Job {
+  id          String              @id @default(uuid())
+  bookingId   String              @unique
+  booking     Booking             @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  stage       JobStage            @default(EN_ROUTE)
+  internalNotes String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  // Relations to Explicit Join Model
+  crewAssignments JobCrewAssignment[]
+
+  @@index([stage])
+}
+
+/// Explicit Join Model: Job <-> CrewProfile (M:N with metadata)
+/// Stores role delegation, assignment timestamp, and supervisor tracking
+model JobCrewAssignment {
+  id          String      @id @default(uuid())
+  jobId       String
+  job         Job         @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  crewId      String
+  crew        CrewProfile @relation(fields: [crewId], references: [id], onDelete: Restrict)
+  role        String      @default("LEAD_DETAILER")
+  assignedAt  DateTime    @default(now())
+  assignedBy  String
+  
+  // Constraints & Foreign Key Indexes
+  @@unique([jobId, crewId])
+  @@index([jobId])
+  @@index([crewId])
+}
+
+/// CS-01: Operations Customer Support Desk & Call Logging
+model SupportTicket {
+  id            String         @id @default(uuid())
+  ticketNumber  String         @unique
+  customerPhone String
+  customerName  String
+  bookingId     String?
+  booking       Booking?       @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  issueType     String
+  priority      TicketPriority @default(MEDIUM)
+  status        TicketStatus   @default(OPEN)
+  notes         String
+  agentId       String?
+  agent         User?          @relation("AgentTickets", fields: [agentId], references: [id], onDelete: SetNull)
+  resolvedAt    DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  // Compound index ordered by Left-Prefix Rule (status query first, then priority)
+  @@index([status, priority])
+  @@index([customerPhone])
+  @@index([bookingId])
+  @@index([agentId])
+}
+
+/// In-app user notifications & real-time dispatch alerts
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Left-Prefix Rule: Filter by userId, then by read status
+  @@index([userId, isRead])
+}
+
+/// Audit logging for compliance and RBAC security tracking
+model AuditLog {
+  id            String   @id @default(uuid())
+  entityType    String
+  entityId      String
+  action        String
+  performedById String?
+  performedBy   User?    @relation("PerformedActions", fields: [performedById], references: [id], onDelete: SetNull)
+  metadata      Json?
+  createdAt     DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([performedById])
+  @@index([createdAt])
+}
